@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>테스트 데이터 주입</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
+        <h1 class="text-2xl font-bold mb-6">🧪 테스트 데이터 주입</h1>
+        
+        <div class="space-y-4">
+            <button onclick="injectTestData()" class="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-bold">
+                📊 테스트 데이터 주입
+            </button>
+            
+                <button onclick="requestServerAnalysis()" class="w-full bg-indigo-500 text-white py-3 rounded-lg hover:bg-indigo-600 font-bold">
+                    🔁 서버로 계산 요청 (배치)
+                </button>
+            
+            <button onclick="checkData()" class="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 font-bold">
+                🔍 현재 데이터 확인
+            </button>
+            
+            <button onclick="clearData()" class="w-full bg-red-500 text-white py-3 rounded-lg hover:bg-red-600 font-bold">
+                🗑️ 데이터 삭제
+            </button>
+            
+            <div class="grid grid-cols-2 gap-4 mt-6">
+                <a href="01 헤지매니저.html" class="bg-gray-200 text-center py-3 rounded-lg hover:bg-gray-300">
+                    → 헤지매니저
+                </a>
+                <a href="02 노출분석 .html" class="bg-gray-200 text-center py-3 rounded-lg hover:bg-gray-300">
+                    → 노출분석
+                </a>
+            </div>
+        </div>
+        
+        <div id="result" class="mt-6 p-4 bg-gray-50 rounded font-mono text-xs whitespace-pre-wrap"></div>
+    </div>
+
+    <script>
+        function injectTestData() {
+            const testData = [
+                { id: 1, type: 'receivable', currency: 'USD', amount: 5000000, maturityDate: '2026-05-15', counterparty: '삼성전자' },
+                { id: 2, type: 'receivable', currency: 'USD', amount: 3000000, maturityDate: '2026-06-20', counterparty: 'LG전자' },
+                { id: 3, type: 'payable', currency: 'USD', amount: 2000000, maturityDate: '2026-04-10', counterparty: 'Apple' },
+                { id: 4, type: 'receivable', currency: 'EUR', amount: 1500000, maturityDate: '2026-07-01', counterparty: 'BMW' },
+                { id: 5, type: 'payable', currency: 'EUR', amount: 800000, maturityDate: '2026-05-25', counterparty: 'Siemens' },
+                { id: 6, type: 'receivable', currency: 'JPY', amount: 200000000, maturityDate: '2026-08-15', counterparty: 'Sony' },
+                { id: 7, type: 'payable', currency: 'JPY', amount: 150000000, maturityDate: '2026-06-30', counterparty: 'Toyota' },
+                { id: 8, type: 'receivable', currency: 'CNY', amount: 10000000, maturityDate: '2026-09-01', counterparty: 'Huawei' }
+            ];
+            
+            localStorage.setItem('uploadedData', JSON.stringify(testData));
+            localStorage.setItem('uploadedDataTimestamp', new Date().toISOString());
+            localStorage.setItem('LIGHTWEIGHT_MODE', 'true');
+            
+            document.getElementById('result').textContent = 
+                '✅ 테스트 데이터 주입 완료!\n\n' +
+                '총 ' + testData.length + '건의 거래 데이터:\n' +
+                testData.map(d => `- ${d.counterparty}: ${d.currency} ${d.amount.toLocaleString()} (${d.type})`).join('\n');
+        }
+        
+        async function requestServerAnalysis() {
+            const dataStr = localStorage.getItem('uploadedData');
+            if (!dataStr) {
+                document.getElementById('result').textContent = '❌ 먼저 "테스트 데이터 주입"을 눌러 uploadedData를 만드세요.';
+                return;
+            }
+
+            const data = JSON.parse(dataStr);
+            // 간단한 통화별 요약 구성
+            const currencySummary = {};
+            data.forEach(item => {
+                const c = item.currency || 'USD';
+                if (!currencySummary[c]) currencySummary[c] = { receivable: 0, payable: 0 };
+                if (item.type === 'receivable') currencySummary[c].receivable += Number(item.amount) || 0;
+                else currencySummary[c].payable += Number(item.amount) || 0;
+            });
+
+            const payload = { currencySummary, maturityBuckets: {}, options: { targetHedgeRatio: 75 } };
+
+            document.getElementById('result').textContent = '⏳ 서버로 계산 요청 중...';
+            try {
+                const res = await fetch('/api/calculator/batch', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (!json) throw new Error('No JSON');
+
+                // 저장 및 이벤트 디스패치
+                localStorage.setItem('serverAnalysisResult', JSON.stringify(json));
+                try { window.dispatchEvent(new CustomEvent('serverAnalysisResultUpdated', { detail: json })); } catch(e){}
+
+                document.getElementById('result').textContent = '✅ 서버 계산 결과 저장 및 이벤트 디스패치 완료:\n\n' + JSON.stringify(json, null, 2);
+            } catch (err) {
+                document.getElementById('result').textContent = '❌ 서버 계산 실패:\n' + err.message;
+            }
+        }
+        
+        function checkData() {
+            const data = localStorage.getItem('uploadedData');
+            const timestamp = localStorage.getItem('uploadedDataTimestamp');
+            const netting = localStorage.getItem('nettingResult');
+            const serverResult = localStorage.getItem('serverAnalysisResult');
+            
+            let result = '📦 localStorage 상태:\n\n';
+            
+            if (data) {
+                const parsed = JSON.parse(data);
+                result += `✅ uploadedData: ${parsed.length}건\n`;
+                result += `   업로드 시간: ${timestamp || '알 수 없음'}\n\n`;
+                result += '데이터 미리보기:\n';
+                result += JSON.stringify(parsed.slice(0, 3), null, 2);
+            } else {
+                result += '❌ uploadedData: 없음\n';
+            }
+            
+            result += '\n\n';
+            result += netting ? '✅ nettingResult: 있음' : '❌ nettingResult: 없음';
+            result += '\n';
+            result += serverResult ? '✅ serverAnalysisResult: 있음' : '❌ serverAnalysisResult: 없음';
+            
+            document.getElementById('result').textContent = result;
+        }
+        
+        function clearData() {
+            localStorage.removeItem('uploadedData');
+            localStorage.removeItem('uploadedDataTimestamp');
+            localStorage.removeItem('nettingResult');
+            localStorage.removeItem('serverAnalysisResult');
+            
+            document.getElementById('result').textContent = '🗑️ 모든 데이터가 삭제되었습니다.';
+        }
+        
+        // 페이지 로드 시 자동 확인
+        window.onload = checkData;
+    </script>
+</body>
+</html>

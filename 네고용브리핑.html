@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>네고용 실시간 브리핑 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden bg-gray-50">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">📌 업무 흐름</div>
+            
+            <a href="01 헤지매니저.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">스마트 기능</div>
+            <a href="M1 네고용브리핑.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">
+                <span class="mr-3 text-lg">💬</span> 네고용 브리핑
+            </a>
+            <a href="M2 변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3 text-lg">🔔</span> 변동성 알림
+            </a>
+            <a href="M3 마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3 text-lg">⚖️</span> 마진 벤치마킹
+            </a>
+            <a href="M4 사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3 text-lg">📝</span> 사후 보고서
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">추가 도구</div>
+            <a href="hedge-dashboard.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 전체 대시보드</a>
+            <a href="dashboard-analysis.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📈 분석 도구</a>
+            <a href="demo-anonymization.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔒 익명화 테스트</a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">계정</div>
+            <a href="login.html" class="flex items-center px-6 py-3 hover:bg-gray-800 text-red-400">
+                🚪 로그아웃
+            </a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b p-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-800">네고용 실시간 브리핑 시트</h1>
+        </header>
+        <main class="p-8">
+            <div class="bg-white p-10 rounded-lg shadow-sm border border-gray-200 text-center">
+                <div class="text-6xl mb-4">💬</div>
+                <h2 class="text-2xl font-bold text-gray-700 mb-4">네고용 실시간 브리핑</h2>
+                <p class="text-gray-500">은행과의 네고(협상)를 위한 실시간 환율 및 마진 데이터를 제공합니다.</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

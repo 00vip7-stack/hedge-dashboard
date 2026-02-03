@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>위험 보고서 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 핵심 라이브러리 -->
+    <script src="core/api-client.js"></script>
+    <script src="core/local-storage-manager.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'hedgefreedom-dark': '#1a1f2e'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: "Malgun Gothic", "맑은 고딕", Dotum, "돋움", sans-serif; margin: 0; }
+        /* Report preview cards */
+            .report-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 12px;
+                align-items: start;
+                justify-items: start;
+            }
+            .report-card {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+                display: flex;
+                gap: 12px;
+                padding: 12px;
+                width: 100%;
+                max-width: 260px;
+                box-sizing: border-box;
+            }
+        .report-thumb { width:72px; height:72px; background:#f1f5f9; border-radius:4px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:#1976d2; border:1px dashed #dfe7ef; }
+        .report-info { flex:1; }
+        .report-title { font-size:14px; font-weight:700; color:#333; margin-bottom:6px; }
+        .report-date { font-size:12px; color:#888; margin-bottom:8px; }
+        .report-desc { font-size:13px; color:#555; margin-bottom:10px; }
+        .report-actions button { background:#1976d2; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:13px; margin-right:8px; }
+        .report-actions button.secondary { background:#f1f1f1; color:#333; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden bg-gray-50">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">📌 업무 흐름</div>
+            
+            <!-- STEP 1 -->
+            <a href="01 헤지매니저.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <!-- STEP 2 -->
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <!-- STEP 3 -->
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">
+                <span class="bg-white text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">추가 도구</div>
+            <a href="hedge-dashboard.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 전체 대시보드</a>
+            <a href="dashboard-analysis.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📈 분석 도구</a>
+            <a href="demo-anonymization.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔒 익명화 테스트</a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">계정</div>
+            <a href="login.html" onclick="handleLogout(event)" class="flex items-center px-6 py-3 hover:bg-gray-800 text-red-400">
+                🚪 로그아웃
+            </a>
+            
+            <!-- 사용자 정보 -->
+            <div class="px-6 py-4 mt-8 border-t border-gray-800">
+                <div class="text-xs text-gray-500">로그인:</div>
+                <div id="userEmail" class="text-sm text-gray-300 truncate">demo@hedgefreedom.com</div>
+                <div id="companyName" class="text-xs text-gray-500 mt-1">데모 회사</div>
+            </div>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        
+        <header class="bg-white border-b">
+            <div class="text-right px-8 py-0.5 border-b border-gray-50">
+                <span class="text-[10px] text-gray-400 font-light">갱신 1분전</span>
+            </div>
+            <div class="h-14 flex items-center justify-between px-8">
+                <div class="flex items-center space-x-6 flex-1">
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">USD/KRW</span>
+                        <span class="text-sm font-bold text-green-600">1,342.50</span>
+                        <span class="text-[10px] text-green-600">▲0.45%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-red-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">EUR/USD</span>
+                        <span class="text-sm font-bold text-red-600">1.0842</span>
+                        <span class="text-[10px] text-red-600">▼0.12%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">USD/JPY</span>
+                        <span class="text-sm font-bold text-green-600">148.23</span>
+                        <span class="text-[10px] text-green-600">▲0.28%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-red-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">USD/CNY</span>
+                        <span class="text-sm font-bold text-red-600">7.2145</span>
+                        <span class="text-[10px] text-red-600">▼0.08%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">DXY</span>
+                        <span class="text-sm font-bold text-green-600">103.42</span>
+                        <span class="text-[10px] text-green-600">▲0.15%</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-6 overflow-y-auto">
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">위험 보고서</h1>
+                <p class="text-sm text-gray-500 mt-1">헤지 전략 리포트 및 리스크 분석 문서</p>
+            </div>
+            <div class="bg-white p-6 rounded shadow-sm">
+            <div class="report-grid">
+                <!-- 정리된 리포트 카드 목록 (가나다순, 주요 항목 포함) -->
+                <div class="report-card"><div class="report-thumb">DOC</div><div class="report-info"><div class="report-title">거래 요약 리포트</div><div class="report-date">2026-01-25</div><div class="report-desc">최근 거래 요약(통화별/고객별) 및 핵심 KPI 제공.</div><div class="report-actions"><button onclick="previewReport('summary')">미리보기</button><button class="secondary" onclick="downloadReport('summary')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">내부검토 메모</div><div class="report-date">2026-01-28</div><div class="report-desc">내부 검토용 메모 및 코멘트가 포함된 간단 리포트.</div><div class="report-actions"><button onclick="previewReport('memo')">미리보기</button><button class="secondary" onclick="downloadReport('memo')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">민감도 분석 리포트 (Delta / Gamma)</div><div class="report-date">2026-01-28</div><div class="report-desc">주요 포지션의 민감도(Delta, Gamma) 표 및 요약.</div><div class="report-actions"><button onclick="previewReport('sensitivity')">미리보기</button><button class="secondary" onclick="downloadReport('sensitivity')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">분기별 전략 요약 리포트</div><div class="report-date">2025-Q4</div><div class="report-desc">분기 성과 요약과 다음 분기 권고 전략 포함.</div><div class="report-actions"><button onclick="previewReport('quarter')">미리보기</button><button class="secondary" onclick="downloadReport('quarter')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">리스크 평가 리포트</div><div class="report-date">2026-01-20</div><div class="report-desc">포지션별 리스크 지표(VaR 등) 및 시나리오 분석 결과.</div><div class="report-actions"><button onclick="previewReport('risk')">미리보기</button><button class="secondary" onclick="downloadReport('risk')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">VaR 리포트</div><div class="report-date">2026-01-20</div><div class="report-desc">Value at Risk 계산 결과(포지션·기간별 VaR 테이블 및 그래프).</div><div class="report-actions"><button onclick="previewReport('var')">미리보기</button><button class="secondary" onclick="downloadReport('var')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">DOC</div><div class="report-info"><div class="report-title">전략 승인 리포트</div><div class="report-date">2026-01-28</div><div class="report-desc">헤지 전략 승인 기록 및 승인자 의견, 승인지침 포함.</div><div class="report-actions"><button onclick="previewReport('strategy-approval')">미리보기</button><button class="secondary" onclick="downloadReport('strategy-approval')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">리스크관리정책서</div><div class="report-date">2026-01-28</div><div class="report-desc">회사의 전반적인 리스크관리 정책(거래 허용범위, 한도, 책임체계, 보고주기 등).</div><div class="report-actions"><button onclick="previewReport('risk-policy')">미리보기</button><button class="secondary" onclick="downloadReport('risk-policy')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PNG</div><div class="report-info"><div class="report-title">사용자 대시보드 스냅샷</div><div class="report-date">2026-01-27</div><div class="report-desc">사용자별 대시보드 설정 스냅샷(이미지)으로 빠른 공유용.</div><div class="report-actions"><button onclick="previewReport('snapshot')">미리보기</button><button class="secondary" onclick="downloadReport('snapshot')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">성과분석 및 사후평가 리포트</div><div class="report-date">2026-01-28</div><div class="report-desc">헤지 유효성(회계 기준) 확인 및 예상 vs 실적 차이 분석.</div><div class="report-actions"><button onclick="previewReport('postcheck')">미리보기</button><button class="secondary" onclick="downloadReport('postcheck')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">손익보고서 (P&L Summary)</div><div class="report-date">2026-01-28</div><div class="report-desc">헤지 전/후 손익 요약 및 주요 원인 분석.</div><div class="report-actions"><button onclick="previewReport('pnl')">미리보기</button><button class="secondary" onclick="downloadReport('pnl')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">수익률 비교 리포트</div><div class="report-date">2026-01-26</div><div class="report-desc">전략별 수익률 비교와 벤치마크 대비 성과.</div><div class="report-actions"><button onclick="previewReport('performance')">미리보기</button><button class="secondary" onclick="downloadReport('performance')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">스트레스 테스트 리포트</div><div class="report-date">2026-01-28</div><div class="report-desc">금융 위기/블랙스완 시나리오별 손실 추정 및 대응 플랜.</div><div class="report-actions"><button onclick="previewReport('stress')">미리보기</button><button class="secondary" onclick="downloadReport('stress')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">시장 동향 요약</div><div class="report-date">2026-01-28</div><div class="report-desc">최근 시장 동향과 주요 지표 요약.</div><div class="report-actions"><button onclick="previewReport('market')">미리보기</button><button class="secondary" onclick="downloadReport('market')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">외화노출액 분석 리포트</div><div class="report-date">2026-01-15</div><div class="report-desc">통화별 노출 현황, 만기 분포 및 위험지표 포함.</div><div class="report-actions"><button onclick="previewReport('exposure')">미리보기</button><button class="secondary" onclick="downloadReport('exposure')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">DOC</div><div class="report-info"><div class="report-title">은행 견적요청서 (Bank Quote Request)</div><div class="report-date">2026-01-28</div><div class="report-desc">은행에 보낼 선물환/스왑 견적 요청서 양식 및 스프레드 비교표.</div><div class="report-actions"><button onclick="previewReport('bank-quote')">미리보기</button><button class="secondary" onclick="downloadReport('bank-quote')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">XLS</div><div class="report-info"><div class="report-title">원장 데이터 추출</div><div class="report-date">2026-01-28</div><div class="report-desc">원장 데이터(거래원장) 추출용 파일, 필터 적용 가능.</div><div class="report-actions"><button onclick="previewReport('ledger')">미리보기</button><button class="secondary" onclick="downloadReport('ledger')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">월간 환차손익 리포트</div><div class="report-date">2026-01-01</div><div class="report-desc">최근 월간 환차손익 요약, 주요 원인 및 그래프 포함.</div><div class="report-actions"><button onclick="previewReport('monthly')">미리보기</button><button class="secondary" onclick="downloadReport('monthly')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">XLS</div><div class="report-info"><div class="report-title">커스텀 내보내기 (CSV)</div><div class="report-date">2026-01-22</div><div class="report-desc">필터 적용 가능한 거래 데이터 내보내기용 CSV 파일.</div><div class="report-actions"><button onclick="previewReport('export')">미리보기</button><button class="secondary" onclick="downloadReport('export')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">DOC</div><div class="report-info"><div class="report-title">K-IFRS 1109 위험회피 지정서</div><div class="report-date">2026-01-28</div><div class="report-desc">회계기준 K-IFRS 1109에 따른 위험회피 지정서 템플릿(지정 범위, 전략, 평가방법 포함).</div><div class="report-actions"><button onclick="previewReport('kifrs1109')">미리보기</button><button class="secondary" onclick="downloadReport('kifrs1109')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">포지션 현황 보고서</div><div class="report-date">2026-01-28</div><div class="report-desc">통화별·계약별 포지션, 잔존만기, 미실현손익 및 헤지상태 요약.</div><div class="report-actions"><button onclick="previewReport('position')">미리보기</button><button class="secondary" onclick="downloadReport('position')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">한도 준수 리포트 (Limit Compliance)</div><div class="report-date">2026-01-28</div><div class="report-desc">한도 대비 소진율, 위반 이력 및 즉시 조치 권고.</div><div class="report-actions"><button onclick="previewReport('limits')">미리보기</button><button class="secondary" onclick="downloadReport('limits')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">DOC</div><div class="report-info"><div class="report-title">헤지거래승인요청서</div><div class="report-date">2026-01-28</div><div class="report-desc">개별 헤지거래 승인을 요청하기 위한 신청서 양식(거래내역, 목적, 승인자 서명란 포함).</div><div class="report-actions"><button onclick="previewReport('hedge-approval')">미리보기</button><button class="secondary" onclick="downloadReport('hedge-approval')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">헤지 실행 현황 리포트</div><div class="report-date">2026-01-10</div><div class="report-desc">최근 헤지 실행 내역과 성공률, 권고 사항 요약.</div><div class="report-actions"><button onclick="previewReport('execution')">미리보기</button><button class="secondary" onclick="downloadReport('execution')">다운로드</button></div></div></div>
+                <div class="report-card"><div class="report-thumb">PDF</div><div class="report-info"><div class="report-title">헤지효과성평가서</div><div class="report-date">2026-01-28</div><div class="report-desc">헤지의 회계적 유효성 테스트 결과를 정리한 평가서(테스트 방식, 기간, 결과 포함).</div><div class="report-actions"><button onclick="previewReport('hedge-effectiveness')">미리보기</button><button class="secondary" onclick="downloadReport('hedge-effectiveness')">다운로드</button></div></div></div>
+            </div>
+        </div>
+        </main>
+    </div>
+    <script>
+        function previewReport(id) {
+            if (id === 'kifrs1109') { window.open('k-ifrs-1109.html', '_blank'); return; }
+            if (id === 'risk-policy') { window.open('risk-management-policy.html', '_blank'); return; }
+            if (id === 'hedge-approval') { window.open('hedge-transaction-approval.html', '_blank'); return; }
+            if (id === 'hedge-effectiveness') { window.open('hedge-effectiveness.html', '_blank'); return; }
+            if (id === 'var') { window.open('var-report.html', '_blank'); return; }
+            if (id === 'strategy-approval') { window.open('strategy-approval.html', '_blank'); return; }
+            alert('미리보기: ' + id + '\n(여기에 PDF 뷰어 연결 가능)');
+        }
+        function downloadReport(id) {
+            if (id === 'kifrs1109') { const a = document.createElement('a'); a.href = 'k-ifrs-1109.html'; a.download = 'K-IFRS-1109_위험회피_지정서.html'; document.body.appendChild(a); a.click(); a.remove(); return; }
+            if (id === 'risk-policy') { const a = document.createElement('a'); a.href = 'risk-management-policy.html'; a.download = '리스크관리정책서.html'; document.body.appendChild(a); a.click(); a.remove(); return; }
+            if (id === 'hedge-approval') { const a = document.createElement('a'); a.href = 'hedge-transaction-approval.html'; a.download = '헤지거래승인요청서.html'; document.body.appendChild(a); a.click(); a.remove(); return; }
+            if (id === 'hedge-effectiveness') { const a = document.createElement('a'); a.href = 'hedge-effectiveness.html'; a.download = '헤지효과성평가서.html'; document.body.appendChild(a); a.click(); a.remove(); return; }
+            if (id === 'var') { const a = document.createElement('a'); a.href = 'var-report.html'; a.download = 'VaR_리포트.html'; document.body.appendChild(a); a.click(); a.remove(); return; }
+            if (id === 'strategy-approval') { const a = document.createElement('a'); a.href = 'strategy-approval.html'; a.download = '전략_승인_리포트.html'; document.body.appendChild(a); a.click(); a.remove(); return; }
+            alert('다운로드 시작: ' + id + '\n(여기에 파일 다운로드 로직 추가 가능)');
+        }
+    </script>
+</body>
+</html>
+<script>
+    (function(){
+        function applyTheme(){
+            var stored=null; try{ stored=localStorage.getItem('theme'); }catch(e){stored=null;}
+            var now=new Date(); var h=now.getHours();
+            var night = (stored==='night') || (stored===null && (h>=18 || h<6));
+            document.body.classList.toggle('night', night);
+            document.body.classList.toggle('day', !night);
+            var btn = document.getElementById('theme-toggle'); if(btn) btn.textContent = night ? '🌙' : '☀️';
+        }
+        function toggleTheme(e){ e&&e.preventDefault(); try{ var cur=document.body.classList.contains('night')?'night':'day'; localStorage.setItem('theme', cur==='night'?'day':'night'); }catch(e){}
+            applyTheme();
+        }
+        document.addEventListener('DOMContentLoaded', function(){ applyTheme(); var b=document.getElementById('theme-toggle'); if(b){ b.addEventListener('click', toggleTheme); b.style.cursor='pointer'; } });
+    })();
+
+    // 인증 체크
+    function checkAuthentication() {
+        const authInfo = api.loadToken();
+        
+        if (!authInfo) {
+            alert('로그인이 필요합니다.');
+            window.location.href = 'login.html';
+            return false;
+        }
+
+        console.log('인증 확인 완료:', authInfo.email);
+        return true;
+    }
+
+    // 페이지 초기화
+    window.addEventListener('DOMContentLoaded', () => {
+        // 인증 체크
+        if (!checkAuthentication()) {
+            return;
+        }
+
+        // 로컬 스토리지 초기화
+        localStorageManager.initialize().catch(err => {
+            console.warn('로컬 폴더 초기화 실패, localStorage 사용:', err);
+        });
+
+        console.log('위험 보고서 페이지 초기화 완료');
+    });
+</script>
+

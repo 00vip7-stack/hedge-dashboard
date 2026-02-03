@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0; url=01 헤지매니저.html">
+    <title>HedgeFreedom - 메인 대시보드</title>
+</head>
+<body>
+    <p style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+        메인 대시보드로 이동 중... 
+        <a href="01 헤지매니저.html" style="color: blue;">클릭하여 이동</a>
+    </p>
+</body>
+</html>
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    
+    <!-- 헤더 -->
+    <header class="bg-white border-b border-gray-200 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">HedgeFreedom 경량 플랫폼</h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    <span class="inline-flex items-center gap-2">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <strong>Zero Storage:</strong> 모든 데이터는 브라우저에서만 처리됩니다
+                    </span>
+                </p>
+            </div>
+            <div class="text-right">
+                <div class="text-xs text-gray-400">보안 상태</div>
+                <div id="securityStatus" class="text-sm font-semibold text-green-600">
+                    세션 스토리지 (서버 저장 없음)
+                </div>
+                <button onclick="showSecurityInfo()" class="text-xs text-blue-600 hover:underline mt-1">
+                    상세 정보
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="container mx-auto px-6 py-8 max-w-6xl">
+        
+        <!-- 1. 데이터 업로드 섹션 -->
+        <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">📁 1단계: 데이터 입력</h2>
+            
+            <!-- 드래그 앤 드롭 영역 -->
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer">
+                <div class="text-4xl mb-4">📊</div>
+                <p class="text-gray-700 font-semibold mb-2">Excel, CSV 파일을 드래그하거나 클릭하세요</p>
+                <p class="text-sm text-gray-500">최대 50MB, 지원 형식: .xlsx, .xls, .csv, .json</p>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json" class="hidden">
+            </div>
+
+            <!-- 샘플 데이터 버튼 -->
+            <div class="mt-4">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-center">
+                    <a href="sample-generator.html" target="_blank" 
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold">
+                        📥 샘플 Excel 파일 다운로드 (권장)
+                    </a>
+                    <div class="text-xs text-blue-600 mt-2">20건의 미결제 리스트 + 은행 잔액 + 더존 형식</div>
+                </div>
+                <div class="text-center">
+                    <button onclick="loadSampleData(event)" class="px-4 py-2 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 text-sm font-medium">
+                        또는 간단한 샘플로 바로 테스트
+                    </button>
+                </div>
+            </div>
+
+            <!-- 업로드된 파일 정보 -->
+            <div id="fileInfo" class="mt-4 hidden">
+                <div class="bg-blue-50 border border-blue-200 rounded p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-semibold text-blue-900">업로드 완료</div>
+                            <div id="fileName" class="text-xs text-blue-700 mt-1"></div>
+                        </div>
+                        <button onclick="clearData()" class="text-xs text-red-600 hover:underline">삭제</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 리스크 분석 결과 -->
+        <section id="analysisSection" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                
+                <!-- KPI 카드들 -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-xs text-gray-500 font-semibold uppercase mb-2">VaR 95% (최대 예상 손실)</div>
+                    <div id="varValue" class="text-3xl font-bold text-red-600">-</div>
+                    <div class="text-xs text-gray-400 mt-1">1일 보유 기간 기준</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-xs text-gray-500 font-semibold uppercase mb-2">순 노출액 (Net Exposure)</div>
+                    <div id="netExposureValue" class="text-3xl font-bold text-blue-600">-</div>
+                    <div class="text-xs text-gray-400 mt-1">전체 통화 합산</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-xs text-gray-500 font-semibold uppercase mb-2">헤지 비율</div>
+                    <div id="hedgeRatioValue" class="text-3xl font-bold text-gray-700">-</div>
+                    <div class="w-full bg-gray-200 h-2 rounded-full mt-3">
+                        <div id="hedgeRatioBar" class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-xs text-gray-500 font-semibold uppercase mb-2">리스크 상태</div>
+                    <div id="riskStatus" class="text-2xl font-bold">-</div>
+                    <div id="riskStatusMsg" class="text-xs text-gray-500 mt-2">-</div>
+                </div>
+            </div>
+
+            <!-- 통화별 상세 -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">통화별 분석</h3>
+                <div id="currencyTable" class="overflow-x-auto">
+                    <!-- JavaScript로 동적 생성 -->
+                </div>
+            </div>
+
+            <!-- 액션 버튼 -->
+            <div class="flex gap-4">
+                <button onclick="exportPDF()" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                    📄 PDF 리포트 다운로드
+                </button>
+                <button onclick="exportExcel()" class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition">
+                    📊 Excel 다운로드
+                </button>
+                <button onclick="exportBackup()" class="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition">
+                    💾 암호화 백업
+                </button>
+            </div>
+        </section>
+
+        <!-- 보안 안내 -->
+        <div class="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
+            <h3 class="font-bold text-green-900 mb-2">🔒 데이터 보안 정책</h3>
+            <ul class="text-sm text-green-800 space-y-1">
+                <li>✅ 모든 데이터는 귀하의 브라우저에서만 처리됩니다</li>
+                <li>✅ 서버에 어떠한 데이터도 전송되지 않습니다</li>
+                <li>✅ 브라우저 종료 시 모든 데이터가 자동으로 삭제됩니다</li>
+                <li>✅ 선택적으로 AES-256 암호화를 사용할 수 있습니다</li>
+            </ul>
+        </div>
+    </main>
+
+    <!-- JavaScript -->
+    <script src="core/storage-manager.js"></script>
+    <script src="core/data-loader.js"></script>
+    <script src="core/risk-calculator.js"></script>
+    <script src="core/hedge-analysis-engine.js"></script>
+    
+    <script>
+        // 드래그 앤 드롭 설정
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dataLoader.setupDragAndDrop(dropZone, handleFileLoaded);
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                try {
+                    const result = await dataLoader.loadFile(e.target.files[0]);
+                    handleFileLoaded(result);
+                    // 파일 입력 초기화 (같은 파일 재선택 가능)
+                    e.target.value = '';
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+        });
+
+        // 파일 로드 완료 핸들러
+        function handleFileLoaded(data) {
+            console.log('파일 로드 완료:', data);
+            
+            document.getElementById('fileInfo').classList.remove('hidden');
+            document.getElementById('fileName').textContent = data.fileName || 'Unknown';
+            
+            try {
+                // 표준 형식으로 변환
+                let standardData;
+                
+                if (data.type === 'excel' && data.sheets) {
+                    // Excel: 첫 번째 시트 사용
+                    const firstSheetName = Object.keys(data.sheets)[0];
+                    const sheetData = data.sheets[firstSheetName];
+                    console.log(`Excel 시트 사용: ${firstSheetName}, ${sheetData.length}행`);
+                    standardData = dataLoader.convertToStandardFormat({ type: 'excel', data: sheetData });
+                } else if (data.type === 'csv' && data.data) {
+                    standardData = dataLoader.convertToStandardFormat(data);
+                } else if (data.data) {
+                    standardData = data.data;
+                } else {
+                    throw new Error('데이터 형식을 인식할 수 없습니다');
+                }
+                
+                console.log('표준 형식 변환 완료:', standardData);
+                
+                if (!standardData || (Array.isArray(standardData) && standardData.length === 0)) {
+                    throw new Error('변환된 데이터가 비어있습니다');
+                }
+                
+                // 리스크 분석 실행
+                analyzeRisk(standardData);
+            } catch (error) {
+                console.error('데이터 처리 오류:', error);
+                alert('데이터 처리 실패: ' + error.message + '\n\n콘솔(F12)에서 상세 내용을 확인하세요.');
+            }
+        }
+
+        // 샘플 데이터 로드
+        function loadSampleData(event) {
+            if (event) event.stopPropagation();
+            const sampleData = dataLoader.generateSampleData();
+            handleFileLoaded({ fileName: 'sample_data.json', data: sampleData });
+        }
+
+        // 리스크 분석
+        function analyzeRisk(data) {
+            const report = riskCalculator.generateRiskReport(data);
+            
+            // 분석 엔진에 데이터 로드 및 전체 분석 실행
+            hedgeAnalysisEngine.loadData(data);
+            const analysisResults = hedgeAnalysisEngine.runFullAnalysis({
+                timeHorizon: 90,
+                currentRates: {
+                    'USD': 1350,
+                    'EUR': 1450,
+                    'JPY': 9.5,
+                    'CNY': 185
+                },
+                operatingProfit: 5000000000  // 50억 가정
+            });
+            
+            // UI 업데이트 (분석 엔진 결과 사용)
+            document.getElementById('analysisSection').classList.remove('hidden');
+            
+            // VaR (기존 계산기 사용)
+            document.getElementById('varValue').textContent = 
+                '₩' + report.var.totalVaR.toLocaleString();
+            
+            // 순 노출액 (분석 엔진 사용)
+            const netExp = analysisResults.netExposure;
+            let totalNet = 0;
+            Object.keys(netExp.summary).forEach(currency => {
+                totalNet += Math.abs(netExp.summary[currency].net);
+            });
+            document.getElementById('netExposureValue').textContent = 
+                '$' + totalNet.toLocaleString();
+            
+            // 헤지 비율 (정책 준수 데이터)
+            const compliance = analysisResults.compliance;
+            document.getElementById('hedgeRatioValue').textContent = 
+                compliance.overall.hedgeRatio.toFixed(1) + '%';
+            document.getElementById('hedgeRatioBar').style.width = 
+                compliance.overall.hedgeRatio + '%';
+            
+            // 리스크 상태 (정책 준수 기반)
+            const statusMap = {
+                'COMPLIANT': { text: '✅ 양호', color: 'green' },
+                'ATTENTION': { text: '⚠️ 주의', color: 'yellow' },
+                'WARNING': { text: '🔶 경고', color: 'orange' },
+                'CRITICAL': { text: '🔴 위험', color: 'red' }
+            };
+            const status = statusMap[compliance.overall.status] || { text: '점검', color: 'gray' };
+            document.getElementById('riskStatus').textContent = status.text;
+            document.getElementById('riskStatus').className = 
+                `text-2xl font-bold text-${status.color}-600`;
+            document.getElementById('riskStatusMsg').textContent = 
+                `위반 사항: ${compliance.overall.violations.length}건`;
+            
+            // 통화별 테이블 (분석 엔진 데이터)
+            renderCurrencyTable(analysisResults);
+            
+            // 세션에 전체 분석 저장
+            storageManager.saveData('latestAnalysis', analysisResults);
+            
+            // 콘솔에 상세 출력
+            console.log('=== 전사 통합 순 노출 현황 ===');
+            console.log(analysisResults.netExposure);
+            console.log('=== 환율 변동 스트레스 테스트 ===');
+            console.log(analysisResults.sensitivity);
+            console.log('=== 리스크 정책 준수율 ===');
+            console.log(analysisResults.compliance);
+            console.log('=== 최적 헤지 실행 제안서 ===');
+            console.log(analysisResults.hedgeProposal);
+        }
+
+        // 통화별 테이블 렌더링 (분석 엔진 데이터 사용)
+        function renderCurrencyTable(analysisResults) {
+            const netExp = analysisResults.netExposure;
+            const compliance = analysisResults.compliance;
+            
+            const table = document.getElementById('currencyTable');
+            let html = '<table class="w-full text-sm"><thead class="bg-gray-50"><tr>';
+            html += '<th class="px-4 py-2 text-left">통화</th>';
+            html += '<th class="px-4 py-2 text-right">들어올 돈</th>';
+            html += '<th class="px-4 py-2 text-right">나갈 돈</th>';
+            html += '<th class="px-4 py-2 text-right">순 노출액</th>';
+            html += '<th class="px-4 py-2 text-right">헤지 비율</th>';
+            html += '<th class="px-4 py-2 text-left">필요 액션</th>';
+            html += '<th class="px-4 py-2 text-left">상태</th>';
+            html += '</tr></thead><tbody>';
+            
+            Object.keys(netExp.summary).forEach(currency => {
+                const data = netExp.summary[currency];
+                const compData = compliance.byCurrency[currency] || {};
+                const action = netExp.actionRequired[currency];
+                
+                const statusColor = compData.status === 'COMPLIANT' ? 'text-green-600' : 'text-red-600';
+                const statusIcon = compData.status === 'COMPLIANT' ? '✅' : '⚠️';
+                
+                const actionBadge = action ? 
+                    `<span class="px-2 py-1 rounded text-xs font-semibold ${action.action === 'SELL' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}">
+                        ${action.action} ${action.amount.toLocaleString()}
+                    </span>` 
+                    : '<span class="text-gray-400">-</span>';
+                
+                html += `<tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-2 font-bold">${currency}</td>
+                    <td class="px-4 py-2 text-right text-green-600">₩${data.inflows.toLocaleString()}</td>
+                    <td class="px-4 py-2 text-right text-red-600">₩${data.outflows.toLocaleString()}</td>
+                    <td class="px-4 py-2 text-right font-bold ${statusColor}">₩${data.net.toLocaleString()}</td>
+                    <td class="px-4 py-2 text-right">${compData.hedgeRatio?.toFixed(1) || '0.0'}%</td>
+                    <td class="px-4 py-2">${actionBadge}</td>
+                    <td class="px-4 py-2">
+                        <span class="${statusColor}">${statusIcon} ${compData.status || 'N/A'}</span>
+                    </td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            table.innerHTML = html;
+        }
+
+        // 보안 정보 표시
+        function showSecurityInfo() {
+            const status = storageManager.getSecurityStatus();
+            alert(`보안 상태:\n\n${JSON.stringify(status, null, 2)}`);
+        }
+
+        // 데이터 클리어
+        function clearData() {
+            if (confirm('모든 데이터를 삭제하시겠습니까?')) {
+                storageManager.clearSession();
+                location.reload();
+            }
+        }
+
+        // 내보내기 함수들 (실제 구현 필요)
+        function exportPDF() {
+            alert('PDF 생성 기능 (jsPDF 구현 예정)');
+        }
+
+        function exportExcel() {
+            alert('Excel 생성 기능 (SheetJS 구현 예정)');
+        }
+
+        function exportBackup() {
+            const password = prompt('백업 파일 암호화 비밀번호를 입력하세요:');
+            if (password) {
+                storageManager.exportBackup(password);
+            }
+        }
+    </script>
+</body>
+</html>
