@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>환차손익 시뮬레이션 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        .scenario-card { transition: all 0.3s; }
+        .scenario-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
+        .loss-highlight { animation: pulseRed 2s infinite; }
+        @keyframes pulseRed { 0%, 100% { background-color: #fee2e2; } 50% { background-color: #fecaca; } }
+        .number-highlight { font-size: 2.5rem; font-weight: 800; }
+        
+        /* 인쇄 최적화 */
+        .print-only { display: none; }
+        
+        @media print {
+            aside { display: none !important; }
+            header { display: none !important; }
+            .no-print { display: none !important; }
+            main { display: none !important; }
+            .print-only { 
+                display: block !important; 
+                padding: 40px;
+                font-size: 12pt;
+            }
+            body { background: white !important; }
+            .shadow-lg, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
+            .page-break { page-break-after: always; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            
+            <a href="hedge-manager.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🖥️ 실시간 모니터</a>
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🚨 이탈 알림</a>
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📋 네고용 실시간 브리핑</a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔔 환율 변동성 알림</a>
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 익명 마진 벤치마킹</a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📄 사후 보고서 자동생성</a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 hover:bg-gray-800">⏰ 결제 타이밍 점수</a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">🎯 환차손익 시뮬레이션</a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🏆 타사 평균 환율 랭킹</a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📜 협상 이력 관리</a>
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">💹 달러선물 활용</a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">🎯 환차손익 시뮬레이션 (What-if 분석)</h1>
+                    <p class="text-sm text-gray-500 mt-1">결제를 미룰 때 발생할 미래 시나리오를 미리 확인하세요</p>
+                </div>
+                <button onclick="window.print()" class="no-print bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition transform hover:scale-105 flex items-center gap-2">
+                    🖨️ 인쇄하기
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-8">
+            
+            <!-- 경고 배너 -->
+            <div class="bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-lg p-6 mb-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold mb-2">⚠️ 결제 지연 시 예상 손실</h2>
+                        <p class="text-lg">
+                            현재 결제를 <strong class="text-yellow-300">1개월 미룰 경우</strong>, 
+                            환율 10원 상승 시 <strong class="text-yellow-300 text-2xl">5,000만원 추가 지출</strong> 예상됩니다.
+                        </p>
+                    </div>
+                    <div class="text-center ml-6">
+                        <div class="text-7xl">💸</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시뮬레이션 입력 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">⚙️ 시뮬레이션 설정</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">💰 결제 예정 금액 (USD)</label>
+                        <input type="number" id="amount" value="500000" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-lg font-bold focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">📅 결제 지연 기간</label>
+                        <select id="delay" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-lg font-semibold focus:ring-2 focus:ring-blue-500">
+                            <option value="7">1주일</option>
+                            <option value="30" selected>1개월</option>
+                            <option value="90">3개월</option>
+                            <option value="180">6개월</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">📊 현재 환율 (USD/KRW)</label>
+                        <input type="number" id="currentRate" value="1350" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-lg font-bold focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                </div>
+                <button onclick="runSimulation()" class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition transform hover:scale-105 shadow-lg">
+                    🔍 시뮬레이션 실행
+                </button>
+            </div>
+
+            <!-- 즉시 결제 vs 지연 결제 비교 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- 즉시 결제 (안전) -->
+                <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 border-2 border-green-400">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-green-800">✅ 즉시 결제 (오늘)</h3>
+                        <span class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">안전</span>
+                    </div>
+                    <div class="bg-white rounded-lg p-5 mb-4">
+                        <p class="text-sm text-gray-600 mb-2">환율</p>
+                        <p class="text-4xl font-bold text-gray-800" id="todayRate">1,350원</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-5">
+                        <p class="text-sm text-gray-600 mb-2">총 결제 금액</p>
+                        <p class="text-4xl font-bold text-green-600" id="todayTotal">6억 7,500만원</p>
+                    </div>
+                    <div class="mt-4 p-4 bg-green-100 rounded-lg">
+                        <p class="text-green-800 font-semibold text-center">
+                            💡 환율 확정 → 리스크 제로
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 지연 결제 (위험) -->
+                <div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg shadow-lg p-6 border-2 border-red-400">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-red-800">⚠️ 1개월 후 결제</h3>
+                        <span class="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">위험</span>
+                    </div>
+                    <div class="bg-white rounded-lg p-5 mb-4">
+                        <p class="text-sm text-gray-600 mb-2">예상 환율 (+10원 상승)</p>
+                        <p class="text-4xl font-bold text-red-600" id="futureRate">1,360원</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-5">
+                        <p class="text-sm text-gray-600 mb-2">총 결제 금액</p>
+                        <p class="text-4xl font-bold text-red-600" id="futureTotal">6억 8,000만원</p>
+                    </div>
+                    <div class="mt-4 p-4 bg-red-100 rounded-lg loss-highlight">
+                        <p class="text-red-800 font-semibold text-center">
+                            💸 추가 손실 예상: <strong class="text-2xl" id="additionalLoss">5,000만원</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시나리오 분석표 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📊 환율 변동 시나리오별 손익 분석</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <tr>
+                                <th class="px-4 py-3 text-left">시나리오</th>
+                                <th class="px-4 py-3 text-right">환율 변동</th>
+                                <th class="px-4 py-3 text-right">예상 환율</th>
+                                <th class="px-4 py-3 text-right">총 결제액</th>
+                                <th class="px-4 py-3 text-right">손익</th>
+                                <th class="px-4 py-3 text-center">영향도</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="bg-red-50 hover:bg-red-100">
+                                <td class="px-4 py-3 font-semibold text-red-800">⚠️ 최악 시나리오</td>
+                                <td class="px-4 py-3 text-right font-bold text-red-600">+30원</td>
+                                <td class="px-4 py-3 text-right font-bold">1,380원</td>
+                                <td class="px-4 py-3 text-right">6억 9,000만원</td>
+                                <td class="px-4 py-3 text-right font-bold text-red-600">-1억 5,000만원</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-red-200 text-red-900 px-3 py-1 rounded font-bold">극심</span></td>
+                            </tr>
+                            <tr class="bg-orange-50 hover:bg-orange-100">
+                                <td class="px-4 py-3 font-semibold text-orange-800">📈 악화 시나리오</td>
+                                <td class="px-4 py-3 text-right font-bold text-orange-600">+20원</td>
+                                <td class="px-4 py-3 text-right font-bold">1,370원</td>
+                                <td class="px-4 py-3 text-right">6억 8,500만원</td>
+                                <td class="px-4 py-3 text-right font-bold text-orange-600">-1억원</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-orange-200 text-orange-900 px-3 py-1 rounded font-bold">높음</span></td>
+                            </tr>
+                            <tr class="bg-yellow-50 hover:bg-yellow-100">
+                                <td class="px-4 py-3 font-semibold text-yellow-800">📊 기본 시나리오</td>
+                                <td class="px-4 py-3 text-right font-bold text-yellow-600">+10원</td>
+                                <td class="px-4 py-3 text-right font-bold">1,360원</td>
+                                <td class="px-4 py-3 text-right">6억 8,000만원</td>
+                                <td class="px-4 py-3 text-right font-bold text-yellow-600">-5,000만원</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-yellow-200 text-yellow-900 px-3 py-1 rounded font-bold">중간</span></td>
+                            </tr>
+                            <tr class="bg-gray-50 hover:bg-gray-100">
+                                <td class="px-4 py-3 font-semibold text-gray-800">➡️ 유지 시나리오</td>
+                                <td class="px-4 py-3 text-right font-bold text-gray-600">±0원</td>
+                                <td class="px-4 py-3 text-right font-bold">1,350원</td>
+                                <td class="px-4 py-3 text-right">6억 7,500만원</td>
+                                <td class="px-4 py-3 text-right font-bold text-gray-600">±0원</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-gray-200 text-gray-900 px-3 py-1 rounded">보통</span></td>
+                            </tr>
+                            <tr class="bg-green-50 hover:bg-green-100">
+                                <td class="px-4 py-3 font-semibold text-green-800">📉 개선 시나리오</td>
+                                <td class="px-4 py-3 text-right font-bold text-green-600">-10원</td>
+                                <td class="px-4 py-3 text-right font-bold">1,340원</td>
+                                <td class="px-4 py-3 text-right">6억 7,000만원</td>
+                                <td class="px-4 py-3 text-right font-bold text-green-600">+5,000만원</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-green-200 text-green-900 px-3 py-1 rounded font-bold">이득</span></td>
+                            </tr>
+                            <tr class="bg-emerald-50 hover:bg-emerald-100">
+                                <td class="px-4 py-3 font-semibold text-emerald-800">✅ 최선 시나리오</td>
+                                <td class="px-4 py-3 text-right font-bold text-emerald-600">-20원</td>
+                                <td class="px-4 py-3 text-right font-bold">1,330원</td>
+                                <td class="px-4 py-3 text-right">6억 6,500만원</td>
+                                <td class="px-4 py-3 text-right font-bold text-emerald-600">+1억원</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-emerald-200 text-emerald-900 px-3 py-1 rounded font-bold">대박</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 p-4 bg-red-50 rounded-lg border border-red-300">
+                    <p class="text-red-800 font-semibold">
+                        ⚠️ <strong>주의:</strong> 환율 상승 시나리오(3가지)가 하락 시나리오(2가지)보다 많습니다. 
+                        통계적으로 손실 가능성이 더 높습니다.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 확률 기반 예상 손실 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-lg p-6 border-t-4 border-red-500">
+                    <h3 class="font-bold text-gray-800 mb-3">📊 확률 70%</h3>
+                    <p class="text-sm text-gray-600 mb-2">환율 상승 시나리오</p>
+                    <p class="text-4xl font-bold text-red-600 mb-2">-8,500만원</p>
+                    <p class="text-xs text-gray-500">평균 예상 손실</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6 border-t-4 border-gray-400">
+                    <h3 class="font-bold text-gray-800 mb-3">📊 확률 10%</h3>
+                    <p class="text-sm text-gray-600 mb-2">환율 유지 시나리오</p>
+                    <p class="text-4xl font-bold text-gray-600 mb-2">±0원</p>
+                    <p class="text-xs text-gray-500">손익 없음</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6 border-t-4 border-green-500">
+                    <h3 class="font-bold text-gray-800 mb-3">📊 확률 20%</h3>
+                    <p class="text-sm text-gray-600 mb-2">환율 하락 시나리오</p>
+                    <p class="text-4xl font-bold text-green-600 mb-2">+6,500만원</p>
+                    <p class="text-xs text-gray-500">평균 예상 이득</p>
+                </div>
+            </div>
+
+            <!-- 시각적 차트 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📈 환율 변동 시 손익 시뮬레이션</h3>
+                <canvas id="scenarioChart" height="80"></canvas>
+            </div>
+
+            <!-- 경영진 설득용 결론 -->
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-2xl p-8 text-white">
+                <div class="text-center">
+                    <h3 class="text-3xl font-bold mb-4">🚨 데이터 기반 결론</h3>
+                    <div class="bg-white bg-opacity-20 rounded-lg p-6 mb-6">
+                        <p class="text-2xl font-bold mb-4">
+                            결제를 1개월 미루면, <strong class="text-yellow-300">70% 확률로 평균 8,500만원 손실</strong>이 예상됩니다.
+                        </p>
+                        <p class="text-lg">
+                            반면 이득 가능성은 <strong class="text-yellow-300">20% (평균 6,500만원)</strong>에 불과합니다.
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-red-600 bg-opacity-50 rounded-lg p-4">
+                            <p class="text-5xl font-bold mb-2">70%</p>
+                            <p class="text-lg">손실 가능성</p>
+                        </div>
+                        <div class="bg-green-600 bg-opacity-50 rounded-lg p-4">
+                            <p class="text-5xl font-bold mb-2">20%</p>
+                            <p class="text-lg">이득 가능성</p>
+                        </div>
+                    </div>
+                    <div class="bg-yellow-400 text-gray-900 rounded-lg p-6">
+                        <p class="text-2xl font-bold mb-2">
+                            💡 지금 확정해야 하는 이유
+                        </p>
+                        <p class="text-lg">
+                            <strong>리스크 회피 > 투기적 기대</strong><br>
+                            환율 상승 리스크를 제거하고, 예산을 확정하는 것이 합리적 경영 판단입니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- 인쇄 전용 템플릿 -->
+    <div class="print-only">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+            <h1 style="font-size: 20pt; font-weight: bold; margin-bottom: 10px;">환차손익 시뮬레이션 분석 보고서</h1>
+            <p style="font-size: 10pt; color: #666;">HedgeFreedom 위험관리시스템</p>
+            <p style="font-size: 9pt; color: #999;">보고서 생성일: <span id="printDate"></span></p>
+        </div>
+
+        <!-- 시뮬레이션 조건 -->
+        <div style="margin-bottom: 25px; padding: 15px; background: #f9f9f9; border-left: 4px solid #999;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px;">📋 시뮬레이션 조건</h2>
+            <table style="width: 100%; font-size: 10pt;">
+                <tr>
+                    <td style="padding: 6px 0;"><strong>결제 예정 금액:</strong></td>
+                    <td style="text-align: right;"><span id="printAmount"></span> USD</td>
+                    <td style="padding: 6px 0; padding-left: 30px;"><strong>현재 환율:</strong></td>
+                    <td style="text-align: right;"><span id="printCurrentRate"></span>원</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0;"><strong>결제 지연 기간:</strong></td>
+                    <td style="text-align: right;"><span id="printDelay"></span></td>
+                    <td style="padding: 6px 0; padding-left: 30px;"><strong>분석 기준일:</strong></td>
+                    <td style="text-align: right;">2026년 2월 3일</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 핵심 결과 요약 -->
+        <div style="margin-bottom: 25px; padding: 20px; background: white; border: 2px solid #333;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 15px;">⚠️ 핵심 결과 요약</h2>
+            <div style="text-align: center; margin: 20px 0;">
+                <p style="font-size: 12pt; margin-bottom: 10px;">결제를 <strong style="font-size: 13pt;"><span id="printDelayText"></span> 미룰 경우</strong></p>
+                <p style="font-size: 16pt; font-weight: bold; margin: 15px 0;">
+                    추가 손실 예상: <span id="printLoss"></span>
+                </p>
+                <p style="font-size: 10pt; color: #666;">(환율 +10원 상승 시나리오 기준)</p>
+            </div>
+        </div>
+
+        <!-- 즉시 결제 vs 지연 결제 비교 -->
+        <div style="margin-bottom: 25px;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px;">💰 결제 시기별 비교</h2>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10pt;">
+                <thead>
+                    <tr style="background: #e5e5e5;">
+                        <th style="padding: 10px; text-align: left; border: 1px solid #999;">구분</th>
+                        <th style="padding: 10px; text-align: right; border: 1px solid #999;">환율</th>
+                        <th style="padding: 10px; text-align: right; border: 1px solid #999;">총 결제 금액</th>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #999;">리스크</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 10px; border: 1px solid #ccc;"><strong>✅ 즉시 결제 (오늘)</strong></td>
+                        <td style="padding: 10px; text-align: right; border: 1px solid #ccc;"><span id="printTodayRate"></span></td>
+                        <td style="padding: 10px; text-align: right; border: 1px solid #ccc; font-weight: bold;"><span id="printTodayTotal"></span></td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid #ccc;"><strong>제로</strong></td>
+                    </tr>
+                    <tr style="background: white;">
+                        <td style="padding: 10px; border: 1px solid #ccc;"><strong>⚠️ <span id="printDelayPeriod"></span> 후 결제</strong></td>
+                        <td style="padding: 10px; text-align: right; border: 1px solid #ccc;"><span id="printFutureRate"></span></td>
+                        <td style="padding: 10px; text-align: right; border: 1px solid #ccc; font-weight: bold;"><span id="printFutureTotal"></span></td>
+                        <td style="padding: 10px; text-align: center; border: 1px solid #ccc;"><strong>높음</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 시나리오별 손익 분석 -->
+        <div style="margin-bottom: 25px;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px;">📊 환율 변동 시나리오별 손익 분석</h2>
+            <table style="width: 100%; border-collapse: collapse; font-size: 9pt;">
+                <thead>
+                    <tr style="background: #e5e5e5;">
+                        <th style="padding: 8px; text-align: left; border: 1px solid #999;">시나리오</th>
+                        <th style="padding: 8px; text-align: right; border: 1px solid #999;">환율 변동</th>
+                        <th style="padding: 8px; text-align: right; border: 1px solid #999;">예상 환율</th>
+                        <th style="padding: 8px; text-align: right; border: 1px solid #999;">총 결제액</th>
+                        <th style="padding: 8px; text-align: right; border: 1px solid #999;">손익</th>
+                        <th style="padding: 8px; text-align: center; border: 1px solid #999;">발생 확률</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">⚠️ 최악 시나리오</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">+30원</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario1Rate"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario1Total"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;"><span id="printScenario1Loss"></span></td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">30%</td>
+                    </tr>
+                    <tr style="background: white;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">📈 악화 시나리오</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">+20원</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario2Rate"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario2Total"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;"><span id="printScenario2Loss"></span></td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">25%</td>
+                    </tr>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">📊 기본 시나리오</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">+10원</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario3Rate"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario3Total"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;"><span id="printScenario3Loss"></span></td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">15%</td>
+                    </tr>
+                    <tr style="background: white;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">➡️ 유지 시나리오</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">±0원</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario4Rate"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario4Total"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">±0원</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">10%</td>
+                    </tr>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">📉 개선 시나리오</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">-10원</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario5Rate"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario5Total"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;"><span id="printScenario5Gain"></span></td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">15%</td>
+                    </tr>
+                    <tr style="background: white;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">✅ 최선 시나리오</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">-20원</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario6Rate"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;"><span id="printScenario6Total"></span></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;"><span id="printScenario6Gain"></span></td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">5%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 확률 기반 분석 -->
+        <div style="margin-bottom: 25px; padding: 15px; background: #f9f9f9; border-left: 4px solid #999;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px;">📈 확률 기반 위험 분석</h2>
+            <table style="width: 100%; font-size: 10pt;">
+                <tr>
+                    <td style="padding: 8px 0;"><strong>손실 시나리오 발생 확률:</strong></td>
+                    <td style="text-align: right; font-size: 14pt; font-weight: bold;">70%</td>
+                    <td style="padding: 8px 0; padding-left: 30px;"><strong>평균 예상 손실:</strong></td>
+                    <td style="text-align: right; font-size: 12pt; font-weight: bold;">-8,500만원</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0;"><strong>이득 시나리오 발생 확률:</strong></td>
+                    <td style="text-align: right; font-size: 14pt; font-weight: bold;">20%</td>
+                    <td style="padding: 8px 0; padding-left: 30px;"><strong>평균 예상 이득:</strong></td>
+                    <td style="text-align: right; font-size: 12pt; font-weight: bold;">+6,500만원</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 결론 및 권고사항 -->
+        <div style="margin-top: 30px; padding: 20px; background: white; border: 2px solid #333;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 15px;">🚨 결론 및 권고사항</h2>
+            <div style="font-size: 10pt; line-height: 1.8;">
+                <p style="margin-bottom: 12px;">
+                    <strong>1. 위험 평가:</strong> 결제 지연 시 손실 발생 확률(70%)이 이득 가능성(20%)보다 <strong>3.5배 높습니다.</strong>
+                </p>
+                <p style="margin-bottom: 12px;">
+                    <strong>2. 재무적 영향:</strong> 환율 변동으로 인한 예상 손실액이 <strong>최대 1억 5,000만원</strong>에 달할 수 있습니다.
+                </p>
+                <p style="margin-bottom: 12px;">
+                    <strong>3. 권고사항:</strong> <strong style="font-size: 11pt;">즉시 환율을 확정하여 리스크를 제거하는 것이 합리적 경영 판단입니다.</strong>
+                </p>
+                <p style="margin-top: 15px; padding: 12px; background: #f9f9f9; border-left: 4px solid #999;">
+                    💡 <strong>의사결정 근거:</strong> 투기적 기대보다 리스크 회피를 우선하여 예산을 확정하고, 환율 변동성으로부터 회사 자산을 보호해야 합니다.
+                </p>
+            </div>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #ddd; padding-top: 15px;">
+            <p>본 보고서는 HedgeFreedom 위험관리시스템에서 자동 생성되었습니다.</p>
+            <p>문의: risk@hedgefreedom.com | Tel: 02-1234-5678</p>
+        </div>
+    </div>
+
+    <script>
+        // 시뮬레이션 실행
+        function runSimulation() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const currentRate = parseFloat(document.getElementById('currentRate').value);
+            const delay = parseInt(document.getElementById('delay').value);
+            
+            // 기본 시나리오: +10원 상승
+            const futureRate = currentRate + 10;
+            const todayTotal = amount * currentRate;
+            const futureTotal = amount * futureRate;
+            const loss = futureTotal - todayTotal;
+            
+            // 화면 업데이트
+            document.getElementById('todayRate').textContent = currentRate.toLocaleString() + '원';
+            document.getElementById('todayTotal').textContent = (todayTotal / 100000000).toFixed(1) + '억원';
+            document.getElementById('futureRate').textContent = futureRate.toLocaleString() + '원';
+            document.getElementById('futureTotal').textContent = (futureTotal / 100000000).toFixed(1) + '억원';
+            document.getElementById('additionalLoss').textContent = (loss / 10000000).toFixed(0) + '00만원';
+            
+            // 인쇄용 데이터 업데이트
+            updatePrintTemplate(amount, currentRate, delay);
+            
+            alert('✅ 시뮬레이션이 완료되었습니다!\n\n경영진에게 지금 확정해야 하는 이유를 데이터로 제시하세요.');
+        }
+        
+        // 인쇄용 템플릿 데이터 업데이트
+        function updatePrintTemplate(amount, currentRate, delay) {
+            const delayText = delay === 7 ? '1주일' : delay === 30 ? '1개월' : delay === 90 ? '3개월' : '6개월';
+            
+            // 날짜
+            const today = new Date();
+            document.getElementById('printDate').textContent = today.toLocaleDateString('ko-KR');
+            
+            // 시뮬레이션 조건
+            document.getElementById('printAmount').textContent = amount.toLocaleString();
+            document.getElementById('printCurrentRate').textContent = currentRate.toLocaleString();
+            document.getElementById('printDelay').textContent = delayText;
+            document.getElementById('printDelayText').textContent = delayText;
+            document.getElementById('printDelayPeriod').textContent = delayText;
+            
+            // 기본 시나리오 (+10원)
+            const futureRate = currentRate + 10;
+            const todayTotal = amount * currentRate;
+            const futureTotal = amount * futureRate;
+            const loss = futureTotal - todayTotal;
+            
+            document.getElementById('printTodayRate').textContent = currentRate.toLocaleString() + '원';
+            document.getElementById('printTodayTotal').textContent = (todayTotal / 100000000).toFixed(1) + '억원';
+            document.getElementById('printFutureRate').textContent = futureRate.toLocaleString() + '원';
+            document.getElementById('printFutureTotal').textContent = (futureTotal / 100000000).toFixed(1) + '억원';
+            document.getElementById('printLoss').textContent = (loss / 10000000).toFixed(0) + '00만원';
+            
+            // 시나리오별 계산
+            // 최악 (+30원)
+            const scenario1Rate = currentRate + 30;
+            const scenario1Total = amount * scenario1Rate;
+            const scenario1Loss = scenario1Total - todayTotal;
+            document.getElementById('printScenario1Rate').textContent = scenario1Rate.toLocaleString() + '원';
+            document.getElementById('printScenario1Total').textContent = (scenario1Total / 100000000).toFixed(1) + '억원';
+            document.getElementById('printScenario1Loss').textContent = '-' + (scenario1Loss / 100000000).toFixed(1) + '억원';
+            
+            // 악화 (+20원)
+            const scenario2Rate = currentRate + 20;
+            const scenario2Total = amount * scenario2Rate;
+            const scenario2Loss = scenario2Total - todayTotal;
+            document.getElementById('printScenario2Rate').textContent = scenario2Rate.toLocaleString() + '원';
+            document.getElementById('printScenario2Total').textContent = (scenario2Total / 100000000).toFixed(1) + '억원';
+            document.getElementById('printScenario2Loss').textContent = '-' + (scenario2Loss / 100000000).toFixed(1) + '억원';
+            
+            // 기본 (+10원)
+            document.getElementById('printScenario3Rate').textContent = futureRate.toLocaleString() + '원';
+            document.getElementById('printScenario3Total').textContent = (futureTotal / 100000000).toFixed(1) + '억원';
+            document.getElementById('printScenario3Loss').textContent = '-' + (loss / 10000000).toFixed(0) + '00만원';
+            
+            // 유지 (±0)
+            document.getElementById('printScenario4Rate').textContent = currentRate.toLocaleString() + '원';
+            document.getElementById('printScenario4Total').textContent = (todayTotal / 100000000).toFixed(1) + '억원';
+            
+            // 개선 (-10원)
+            const scenario5Rate = currentRate - 10;
+            const scenario5Total = amount * scenario5Rate;
+            const scenario5Gain = todayTotal - scenario5Total;
+            document.getElementById('printScenario5Rate').textContent = scenario5Rate.toLocaleString() + '원';
+            document.getElementById('printScenario5Total').textContent = (scenario5Total / 100000000).toFixed(1) + '억원';
+            document.getElementById('printScenario5Gain').textContent = '+' + (scenario5Gain / 10000000).toFixed(0) + '00만원';
+            
+            // 최선 (-20원)
+            const scenario6Rate = currentRate - 20;
+            const scenario6Total = amount * scenario6Rate;
+            const scenario6Gain = todayTotal - scenario6Total;
+            document.getElementById('printScenario6Rate').textContent = scenario6Rate.toLocaleString() + '원';
+            document.getElementById('printScenario6Total').textContent = (scenario6Total / 100000000).toFixed(1) + '억원';
+            document.getElementById('printScenario6Gain').textContent = '+' + (scenario6Gain / 100000000).toFixed(1) + '억원';
+        }
+        
+        // 차트 생성
+        const ctx = document.getElementById('scenarioChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['최악\n(+30원)', '악화\n(+20원)', '기본\n(+10원)', '유지\n(±0)', '개선\n(-10원)', '최선\n(-20원)'],
+                datasets: [{
+                    label: '손익 (백만원)',
+                    data: [-150, -100, -50, 0, 50, 100],
+                    backgroundColor: [
+                        '#ef4444',
+                        '#f97316',
+                        '#f59e0b',
+                        '#9ca3af',
+                        '#10b981',
+                        '#059669'
+                    ],
+                    borderColor: [
+                        '#dc2626',
+                        '#ea580c',
+                        '#d97706',
+                        '#6b7280',
+                        '#059669',
+                        '#047857'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                return value >= 0 ? '+' + value + '백만원 이득' : value + '백만원 손실';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value >= 0 ? '+' + value + 'M' : value + 'M';
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '손익 (백만원)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '환율 변동 시나리오'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 페이지 로드 시 기본 시뮬레이션 실행
+        window.onload = function() {
+            runSimulation();
+        };
+    </script>
+</body>
+</html>

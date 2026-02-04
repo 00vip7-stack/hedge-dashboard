@@ -1,0 +1,14 @@
+/* 간단한 Guide Modal CSS 대체 */
+
+[data-guide] {
+    position: relative;
+}
+
+#simpleTooltip {
+    animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

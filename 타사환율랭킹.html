@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>타사 평균 환율 랭킹 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        .rank-better { background: linear-gradient(to right, #f0fdf4, white); border-left: 4px solid #10b981; }
+        .rank-worse { background: linear-gradient(to right, #fef2f2, white); border-left: 4px solid #ef4444; }
+        .rank-neutral { background: linear-gradient(to right, #fffbeb, white); border-left: 4px solid #f59e0b; }
+        .medal-gold { color: #fbbf24; }
+        .medal-silver { color: #9ca3af; }
+        .medal-bronze { color: #d97706; }
+        
+        .print-only { display: none; }
+        @media print {
+            aside, header, .no-print { display: none !important; }
+            main { display: none !important; }
+            .print-only { 
+                display: block !important; 
+                width: 100%;
+                padding: 15mm;
+                font-size: 11pt; 
+            }
+            body { 
+                background: white !important; 
+                margin: 0 !important; 
+                padding: 0 !important;
+            }
+            @page {
+                margin: 15mm;
+                size: A4;
+            }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            
+            <a href="hedge-manager.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🖥️ 실시간 모니터</a>
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🚨 이탈 알림</a>
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📋 네고용 실시간 브리핑</a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔔 환율 변동성 알림</a>
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 익명 마진 벤치마킹</a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📄 사후 보고서 자동생성</a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 hover:bg-gray-800">⏰ 결제 타이밍 점수</a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🎯 환차손익 시뮬레이션</a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">🏆 타사 평균 환율 랭킹</a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📜 협상 이력 관리</a>
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">💹 달러선물 활용</a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">계정</div>
+            <a href="login.html" class="flex items-center px-6 py-3 hover:bg-gray-800 text-red-400">
+                🚪 로그아웃
+            </a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">🏆 타사 평균 환율 랭킹 (익명 벤치마킹)</h1>
+                    <p class="text-sm text-gray-500 mt-1">동종 업계의 실제 거래 환율과 비교하여 우리 회사의 경쟁력을 확인하세요</p>
+                </div>
+                <button onclick="window.print()" class="no-print bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition transform hover:scale-105">
+                    🖨️ 랭킹 보고서 인쇄
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-8">
+            
+            <!-- 우리 회사 순위 -->
+            <div class="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg shadow-lg p-6 mb-6 border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">우리 회사 순위</h2>
+                        <p class="text-sm text-gray-600">2026년 1월 USD/KRW 평균 환율 기준</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-white rounded-2xl px-8 py-6 shadow-xl border-2 border-red-300">
+                            <div class="text-5xl font-bold text-red-600">7위</div>
+                            <div class="text-sm mt-2 text-gray-600">/ 12개사</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 p-4 bg-white rounded-lg border border-red-200">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-600">우리 회사 평균 환율</p>
+                            <p class="text-2xl font-bold text-red-600">1,328.50원</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">업계 평균 환율</p>
+                            <p class="text-2xl font-bold text-gray-800">1,323.20원</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">격차 (불리)</p>
+                            <p class="text-2xl font-bold text-red-600">+5.30원</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-red-100 rounded-lg border border-red-300">
+                    <p class="text-sm text-red-800">⚠️ <strong>경고:</strong> 업계 평균 대비 <strong>5.30원 비싸게</strong> 거래하고 있습니다. 환테크 개선이 필요합니다.</p>
+                </div>
+            </div>
+
+            <!-- 필터 및 설정 -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">🔍 비교 조건 설정</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">업종</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option selected>자동차 부품</option>
+                            <option>전자 부품</option>
+                            <option>화학 제조</option>
+                            <option>식품 가공</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">매출 규모</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option>100억 미만</option>
+                            <option selected>100억~500억</option>
+                            <option>500억~1,000억</option>
+                            <option>1,000억 이상</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">기간</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option>이번 주</option>
+                            <option selected>이번 달</option>
+                            <option>최근 3개월</option>
+                            <option>올해</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">통화</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option selected>USD/KRW</option>
+                            <option>EUR/KRW</option>
+                            <option>JPY/KRW</option>
+                            <option>CNY/KRW</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 업계 랭킹 테이블 -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">📊 자동차 부품 업계 환율 랭킹 (익명)</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b-2 border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-700">순위</th>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-700">기업 코드</th>
+                                <th class="px-4 py-3 text-right font-semibold text-gray-700">평균 환율</th>
+                                <th class="px-4 py-3 text-right font-semibold text-gray-700">거래 건수</th>
+                                <th class="px-4 py-3 text-right font-semibold text-gray-700">총 거래액 (USD)</th>
+                                <th class="px-4 py-3 text-center font-semibold text-gray-700">평가</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="rank-better hover:bg-gray-50">
+                                <td class="px-4 py-3 font-bold medal-gold">🥇 1위</td>
+                                <td class="px-4 py-3 text-gray-600">A사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-bold text-green-600">1,318.20원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">127건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$8.2M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">우수</span></td>
+                            </tr>
+                            <tr class="rank-better hover:bg-gray-50">
+                                <td class="px-4 py-3 font-bold medal-silver">🥈 2위</td>
+                                <td class="px-4 py-3 text-gray-600">B사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-bold text-green-600">1,319.80원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">98건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$6.5M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">우수</span></td>
+                            </tr>
+                            <tr class="rank-better hover:bg-gray-50">
+                                <td class="px-4 py-3 font-bold medal-bronze">🥉 3위</td>
+                                <td class="px-4 py-3 text-gray-600">C사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-bold text-green-600">1,320.50원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">145건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$11.3M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">우수</span></td>
+                            </tr>
+                            <tr class="rank-neutral hover:bg-gray-50">
+                                <td class="px-4 py-3 font-semibold">4위</td>
+                                <td class="px-4 py-3 text-gray-600">D사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-semibold text-gray-800">1,321.90원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">76건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$4.8M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">보통</span></td>
+                            </tr>
+                            <tr class="rank-neutral hover:bg-gray-50">
+                                <td class="px-4 py-3 font-semibold">5위</td>
+                                <td class="px-4 py-3 text-gray-600">E사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-semibold text-gray-800">1,323.10원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">103건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$7.1M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">보통</span></td>
+                            </tr>
+                            <tr class="rank-neutral hover:bg-gray-50">
+                                <td class="px-4 py-3 font-semibold">6위</td>
+                                <td class="px-4 py-3 text-gray-600">F사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-semibold text-gray-800">1,324.80원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">89건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$5.9M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">보통</span></td>
+                            </tr>
+                            <tr class="rank-worse hover:bg-red-50 bg-red-50 border-2 border-red-400">
+                                <td class="px-4 py-3 font-bold text-red-600">7위</td>
+                                <td class="px-4 py-3 font-bold text-red-600">우리 회사 ⬅️</td>
+                                <td class="px-4 py-3 text-right font-bold text-red-600">1,328.50원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">67건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$3.2M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">개선 필요</span></td>
+                            </tr>
+                            <tr class="rank-worse hover:bg-gray-50">
+                                <td class="px-4 py-3 font-semibold text-gray-600">8위</td>
+                                <td class="px-4 py-3 text-gray-600">G사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-semibold text-red-600">1,330.20원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">54건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$2.8M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">개선 필요</span></td>
+                            </tr>
+                            <tr class="rank-worse hover:bg-gray-50">
+                                <td class="px-4 py-3 font-semibold text-gray-600">9위</td>
+                                <td class="px-4 py-3 text-gray-600">H사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-semibold text-red-600">1,332.90원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">41건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$1.9M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">개선 필요</span></td>
+                            </tr>
+                            <tr class="rank-worse hover:bg-gray-50">
+                                <td class="px-4 py-3 font-semibold text-gray-600">10위</td>
+                                <td class="px-4 py-3 text-gray-600">I사 (익명)</td>
+                                <td class="px-4 py-3 text-right font-semibold text-red-600">1,335.40원</td>
+                                <td class="px-4 py-3 text-right text-gray-600">38건</td>
+                                <td class="px-4 py-3 text-right text-gray-600">$1.5M</td>
+                                <td class="px-4 py-3 text-center"><span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">개선 필요</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 개선 효과 시뮬레이션 -->
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow p-6 mb-6 border-l-4 border-blue-500">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">💡 업계 평균 수준 달성 시 예상 절감액</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-lg p-4">
+                        <p class="text-sm text-gray-600">이번 달 거래액 (USD)</p>
+                        <p class="text-2xl font-bold text-gray-800">$3,200,000</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4">
+                        <p class="text-sm text-gray-600">환율 격차</p>
+                        <p class="text-2xl font-bold text-red-600">+5.30원</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4">
+                        <p class="text-sm text-gray-600">월간 손실 추정액</p>
+                        <p class="text-2xl font-bold text-red-600">-16,960,000원</p>
+                    </div>
+                </div>
+                <div class="mt-4 p-4 bg-blue-100 rounded-lg border border-blue-300">
+                    <p class="text-sm text-blue-800">📌 <strong>개선 목표:</strong> 업계 평균(1,323.20원) 수준으로 개선 시 <strong>월 1,696만 원, 연간 약 2억 원</strong> 절감 가능</p>
+                </div>
+            </div>
+
+            <!-- 랭킹 추이 차트 -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">📈 최근 6개월 순위 추이</h2>
+                <canvas id="rankingChart" height="80"></canvas>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- 인쇄 전용 템플릿 -->
+    <div class="print-only">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+            <h1 style="font-size: 20pt; font-weight: bold; margin-bottom: 10px; color: #000;">업계 환율 랭킹 보고서</h1>
+            <p style="font-size: 10pt; color: #555;">HedgeFreedom 익명 벤치마킹</p>
+            <p style="font-size: 9pt; color: #777;" id="printDate"></p>
+        </div>
+
+        <div style="margin-bottom: 25px; padding: 20px; border: 2px solid #666;">
+            <h2 style="font-size: 14pt; font-weight: bold; margin-bottom: 15px; color: #000;">🏆 우리 회사 순위</h2>
+            <div style="text-align: center; margin: 20px 0;">
+                <p style="font-size: 36pt; font-weight: bold; margin: 10px 0;">7위</p>
+                <p style="font-size: 12pt; color: #555;">/ 12개사 (자동차 부품 업계)</p>
+                <div style="margin-top: 20px;">
+                    <table style="width: 100%; font-size: 10pt;">
+                        <tr>
+                            <td style="padding: 8px;"><strong>우리 회사 평균 환율:</strong></td>
+                            <td style="text-align: right; font-weight: bold;">1,328.50원</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px;"><strong>업계 평균 환율:</strong></td>
+                            <td style="text-align: right;">1,323.20원</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px;"><strong>격차 (불리):</strong></td>
+                            <td style="text-align: right; font-weight: bold;">+5.30원</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 25px;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px; color: #000;">📊 업계 환율 랭킹 (익명)</h2>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10pt;">
+                <thead>
+                    <tr style="background: #e5e5e5;">
+                        <th style="padding: 8px; text-align: left; border: 1px solid #999;">순위</th>
+                        <th style="padding: 8px; text-align: left; border: 1px solid #999;">기업</th>
+                        <th style="padding: 8px; text-align: right; border: 1px solid #999;">평균 환율</th>
+                        <th style="padding: 8px; text-align: center; border: 1px solid #999;">평가</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ccc;">1위</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">A사</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">1,318.20원</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">우수</td>
+                    </tr>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">2-6위</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">B~F사</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;">1,320~1,325원</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">양호</td>
+                    </tr>
+                    <tr style="border-left: 3px solid #333;">
+                        <td style="padding: 8px; border: 1px solid #ccc;"><strong>7위</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ccc;"><strong>우리 회사 ⬅</strong></td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc; font-weight: bold;">1,328.50원</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">개선 필요</td>
+                    </tr>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">8-12위</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">G~I사</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ccc;">1,330~1,335원</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ccc;">부진</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-bottom: 25px; padding: 15px; background: #dbeafe; border-left: 4px solid #3b82f6;">
+            <h2 style="font-size: 14pt; font-weight: bold; margin-bottom: 12px;">💡 업계 평균 달성 시 절감 효과</h2>
+            <p style="font-size: 11pt; line-height: 1.8;">
+                • 이번 달 거래액: $3,200,000<br>
+                • 환율 격차: +5.30원<br>
+                • <strong style="font-size: 14pt; color: #3b82f6;">월간 손실 추정액: 16,960,000원</strong><br>
+                • <strong style="font-size: 14pt; color: #dc2626;">연간 손실 추정액: 약 2억원</strong>
+            </p>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #fff7ed; border: 2px solid #ea580c;">
+            <h2 style="font-size: 14pt; font-weight: bold; margin-bottom: 15px; color: #9a3412;">📋 개선 권고사항</h2>
+            <p style="font-size: 11pt; line-height: 1.8;">
+                1. 목표: 업계 평균(1,323.20원) 수준 달성<br>
+                2. 은행과 즉시 마진 재협상 시작<br>
+                3. 경쟁사 사례를 근거로 협상력 강화<br>
+                4. 분기별 벤치마킹으로 지속적 개선
+            </p>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #ddd; padding-top: 15px;">
+            <p>본 보고서는 HedgeFreedom 익명 벤치마킹 시스템에서 생성되었습니다.</p>
+        </div>
+    </div>
+
+    <script>
+        // 인쇄 시 날짜 업데이트
+        window.addEventListener('beforeprint', function() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ko-KR');
+            document.getElementById('printDate').textContent = `분석 기간: 2026년 1월 (기준일: ${dateStr})`;
+        });
+
+        // 순위 추이 차트
+        const ctx = document.getElementById('rankingChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['8월', '9월', '10월', '11월', '12월', '1월'],
+                datasets: [{
+                    label: '우리 회사 순위',
+                    data: [5, 6, 6, 7, 8, 7],
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        reverse: true,
+                        beginAtZero: false,
+                        min: 1,
+                        max: 12,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                return value + '위';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

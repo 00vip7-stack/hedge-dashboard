@@ -1,0 +1,227 @@
+{
+  "timestamp": "2026-02-04T01:54:58.820Z",
+  "positions": [
+    {
+      "id": "CTR-***1",
+      "counterparty": "A***SA",
+      "currency": "USD",
+      "amount": 50000,
+      "settlementDate": "2026-03-15",
+      "type": "채권",
+      "krwAmount": 67500000,
+      "daysUntil": 39,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***2",
+      "counterparty": "X***UK",
+      "currency": "GBP",
+      "amount": 30000,
+      "settlementDate": "2026-02-28",
+      "type": "채권",
+      "krwAmount": 40500000,
+      "daysUntil": 24,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***3",
+      "counterparty": "G***an",
+      "currency": "JPY",
+      "amount": 5000000,
+      "settlementDate": "2026-04-10",
+      "type": "채권",
+      "krwAmount": 47500000,
+      "daysUntil": 65,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***4",
+      "counterparty": "L***ea",
+      "currency": "USD",
+      "amount": 25000,
+      "settlementDate": "2026-03-01",
+      "type": "채무",
+      "krwAmount": 33750000,
+      "daysUntil": 25,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***5",
+      "counterparty": "P***na",
+      "currency": "CNY",
+      "amount": 200000,
+      "settlementDate": "2026-03-20",
+      "type": "채권",
+      "krwAmount": 37000000,
+      "daysUntil": 44,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***6",
+      "counterparty": "A***Co",
+      "currency": "USD",
+      "amount": 75000,
+      "settlementDate": "2026-03-25",
+      "type": "채권",
+      "krwAmount": 101250000,
+      "daysUntil": 49,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***7",
+      "counterparty": "E***bH",
+      "currency": "EUR",
+      "amount": 45000,
+      "settlementDate": "2026-04-05",
+      "type": "채무",
+      "krwAmount": 65250000,
+      "daysUntil": 60,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***8",
+      "counterparty": "J***KK",
+      "currency": "JPY",
+      "amount": 8000000,
+      "settlementDate": "2026-04-15",
+      "type": "채권",
+      "krwAmount": 76000000,
+      "daysUntil": 70,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***9",
+      "counterparty": "S***td",
+      "currency": "USD",
+      "amount": 60000,
+      "settlementDate": "2026-03-18",
+      "type": "채권",
+      "krwAmount": 81000000,
+      "daysUntil": 42,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***0",
+      "counterparty": "H***ed",
+      "currency": "USD",
+      "amount": 40000,
+      "settlementDate": "2026-04-20",
+      "type": "채무",
+      "krwAmount": 54000000,
+      "daysUntil": 75,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***1",
+      "counterparty": "T***nc",
+      "currency": "USD",
+      "amount": 55000,
+      "settlementDate": "2026-03-28",
+      "type": "채권",
+      "krwAmount": 74250000,
+      "daysUntil": 52,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***2",
+      "counterparty": "V***td",
+      "currency": "USD",
+      "amount": 35000,
+      "settlementDate": "2026-04-08",
+      "type": "채권",
+      "krwAmount": 47250000,
+      "daysUntil": 63,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***3",
+      "counterparty": "T***ng",
+      "currency": "USD",
+      "amount": 42000,
+      "settlementDate": "2026-03-30",
+      "type": "채무",
+      "krwAmount": 56700000,
+      "daysUntil": 54,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***4",
+      "counterparty": "M***hd",
+      "currency": "USD",
+      "amount": 38000,
+      "settlementDate": "2026-04-12",
+      "type": "채권",
+      "krwAmount": 51300000,
+      "daysUntil": 67,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***5",
+      "counterparty": "I***PT",
+      "currency": "USD",
+      "amount": 48000,
+      "settlementDate": "2026-03-22",
+      "type": "채권",
+      "krwAmount": 64800000,
+      "daysUntil": 46,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***6",
+      "counterparty": "P***rp",
+      "currency": "USD",
+      "amount": 32000,
+      "settlementDate": "2026-04-18",
+      "type": "채무",
+      "krwAmount": 43200000,
+      "daysUntil": 73,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***7",
+      "counterparty": "A***ty",
+      "currency": "USD",
+      "amount": 65000,
+      "settlementDate": "2026-03-26",
+      "type": "채권",
+      "krwAmount": 87750000,
+      "daysUntil": 50,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***8",
+      "counterparty": "N***td",
+      "currency": "USD",
+      "amount": 28000,
+      "settlementDate": "2026-04-22",
+      "type": "채권",
+      "krwAmount": 37800000,
+      "daysUntil": 77,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***9",
+      "counterparty": "C***nc",
+      "currency": "USD",
+      "amount": 52000,
+      "settlementDate": "2026-03-29",
+      "type": "채무",
+      "krwAmount": 70200000,
+      "daysUntil": 53,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "CTR-***0",
+      "counterparty": "M***SA",
+      "currency": "USD",
+      "amount": 44000,
+      "settlementDate": "2026-04-16",
+      "type": "채권",
+      "krwAmount": 59400000,
+      "daysUntil": 71,
+      "hedgeStatus": "미헤지"
+    }
+  ],
+  "count": 20,
+  "source": "excel_upload"
+}

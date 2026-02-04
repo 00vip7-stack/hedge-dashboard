@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컬럼 매핑 테스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 20px; }
+        .success { color: green; background: #e6ffe6; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .error { color: red; background: #ffe6e6; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { background: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #45a049; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #4CAF50; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Excel 컬럼 매핑 테스트</h1>
+    
+    <div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <button onclick="testMapping()">테스트 시작</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        // 컬럼 매핑 함수 (excel-parser.js와 동일)
+        function mapColumns(headers) {
+            const map = {
+                counterparty: -1,
+                currency: -1,
+                amount: -1,
+                date: -1,
+                bank: -1,
+                type: -1
+            };
+            
+            const mappingRules = {
+                counterparty: ['거래처', '거래처명', '업체명', '고객사', '상대처', 'counterparty', 'client', 'customer', '회사명', '상호'],
+                currency: ['통화', '외화', '외화종류', '통화코드', 'currency', 'curr', 'ccy', '화폐', '외화구분'],
+                amount: ['금액', '외화금액', '거래금액', '수량', 'amount', 'amt', '외화수량', '발생금액', '금액(외화)'],
+                date: ['날짜', '거래일', '결제예정일', '예정일', 'date', '일자', '결제일', '만기일', '정산일'],
+                bank: ['은행', '거래은행', '금융기관', 'bank', '은행명'],
+                type: ['유형', '거래유형', '구분', 'type', '종류', '수출입구분', '거래구분', '수출/수입']
+            };
+            
+            let log = '<h3>🔍 매핑 과정</h3>';
+            
+            headers.forEach((header, index) => {
+                const headerStr = String(header).trim().toLowerCase();
+                log += `<div>컬럼 ${index}: "${header}" (소문자: "${headerStr}")</div>`;
+                
+                for (const [field, keywords] of Object.entries(mappingRules)) {
+                    const matched = keywords.some(keyword => {
+                        const keywordLower = keyword.toLowerCase();
+                        const isMatch = headerStr.includes(keywordLower) || keywordLower.includes(headerStr);
+                        if (isMatch) {
+                            log += `  <span style="color: green;">✓ ${field} 매칭! (키워드: "${keyword}")</span><br>`;
+                        }
+                        return isMatch;
+                    });
+                    
+                    if (matched && map[field] === -1) {
+                        map[field] = index;
+                    }
+                }
+            });
+            
+            return { map, log };
+        }
+        
+        async function testMapping() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error">파일을 선택해주세요!</div>';
+                return;
+            }
+            
+            try {
+                const file = fileInput.files[0];
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                const headers = jsonData[0];
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ 파일 읽기 성공: ${file.name}</h3>
+                        <p>시트: ${firstSheetName}</p>
+                        <p>총 행수: ${jsonData.length}</p>
+                    </div>
+                `;
+                
+                // 헤더 표시
+                resultDiv.innerHTML += `
+                    <h3>📋 헤더</h3>
+                    <table>
+                        <tr><th>인덱스</th><th>컬럼명</th><th>타입</th></tr>
+                        ${headers.map((h, i) => `<tr><td>${i}</td><td>${h}</td><td>${typeof h}</td></tr>`).join('')}
+                    </table>
+                `;
+                
+                // 매핑 테스트
+                const { map, log } = mapColumns(headers);
+                
+                resultDiv.innerHTML += log;
+                
+                resultDiv.innerHTML += `
+                    <h3>🗺️ 최종 매핑 결과</h3>
+                    <pre>${JSON.stringify(map, null, 2)}</pre>
+                `;
+                
+                // 필수 컬럼 체크
+                const missingFields = [];
+                if (map.currency === -1) missingFields.push('통화');
+                if (map.amount === -1) missingFields.push('금액');
+                
+                if (missingFields.length > 0) {
+                    resultDiv.innerHTML += `
+                        <div class="error">
+                            <h3>❌ 필수 컬럼 누락</h3>
+                            <p>누락된 컬럼: ${missingFields.join(', ')}</p>
+                            <p>사용 가능한 헤더: ${headers.join(', ')}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML += `
+                        <div class="success">
+                            <h3>✅ 매핑 성공!</h3>
+                            <p>통화: 컬럼 ${map.currency} (${headers[map.currency]})</p>
+                            <p>금액: 컬럼 ${map.amount} (${headers[map.amount]})</p>
+                        </div>
+                    `;
+                    
+                    // 데이터 샘플 표시
+                    resultDiv.innerHTML += `
+                        <h3>📊 데이터 샘플 (처음 3행)</h3>
+                        <table>
+                            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                            ${jsonData.slice(1, 4).map(row => 
+                                `<tr>${row.map(cell => `<td>${cell || ''}</td>`).join('')}</tr>`
+                            ).join('')}
+                        </table>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ 오류 발생</h3>
+                        <p>${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

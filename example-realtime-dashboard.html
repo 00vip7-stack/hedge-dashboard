@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>실시간 데이터 바인딩 예시 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="core/realtime-data-handler.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=wrap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        
+        /* 값 변화 애니메이션 */
+        .value-changed {
+            animation: highlight 0.5s ease;
+        }
+        @keyframes highlight {
+            0%, 100% { background-color: transparent; }
+            50% { background-color: #fef08a; }
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">📊 실시간 데이터 바인딩 예시</h1>
+
+        <!-- 1️⃣ 단순 숫자 업데이트 (data-bind 자동 바인딩) -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">1️⃣ 숫자만 실시간 업데이트 (서버 → 화면)</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">현재 환율</p>
+                    <p class="text-3xl font-bold text-blue-600" 
+                       data-bind="exchange_rate.current" 
+                       data-format="exchange-rate"
+                       data-animate="true">
+                        1,350.30원
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        변동: <span data-bind="exchange_rate.change" class="text-red-600">+2.50</span>
+                    </p>
+                </div>
+
+                <div class="bg-green-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">은행 마진</p>
+                    <p class="text-3xl font-bold text-green-600" 
+                       data-bind="margin.current" 
+                       data-format="exchange-rate"
+                       data-animate="true">
+                        25.00원
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        전일대비: <span data-bind="margin.change">-3.00</span>
+                    </p>
+                </div>
+
+                <div class="bg-purple-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">헤지 비율</p>
+                    <p class="text-3xl font-bold text-purple-600" 
+                       data-bind="hedge.ratio" 
+                       data-format="percent"
+                       data-animate="true">
+                        67.5%
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        권장: <span data-bind="hedge.recommended">70%</span>
+                    </p>
+                </div>
+
+                <div class="bg-orange-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">노출 금액</p>
+                    <p class="text-3xl font-bold text-orange-600" 
+                       data-bind="exposure.amount" 
+                       data-format="currency"
+                       data-animate="true">
+                        $2,450,000
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-4 p-3 bg-gray-100 rounded">
+                <p class="text-sm text-gray-700">
+                    ✅ <strong>data-bind</strong> 속성만 추가하면 자동으로 서버 데이터와 연결됨<br>
+                    ✅ <strong>data-format</strong>으로 숫자 포맷 지정 (currency, percent, exchange-rate 등)<br>
+                    ✅ <strong>data-animate</strong>로 값 변화 시 강조 효과
+                </p>
+            </div>
+        </div>
+
+        <!-- 2️⃣ 조건부 텍스트 (자연어 생성 X, 템플릿 선택) -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">2️⃣ 조건부 메시지 (미리 작성된 템플릿 중 선택)</h2>
+            
+            <!-- 마진 상태 메시지 (JavaScript가 조건에 따라 텍스트 변경) -->
+            <div id="margin-status-message" class="mb-4">
+                <!-- JavaScript로 동적 업데이트 -->
+            </div>
+
+            <!-- 변동성 메시지 -->
+            <div id="volatility-message" class="mb-4">
+                <!-- JavaScript로 동적 업데이트 -->
+            </div>
+
+            <div class="mt-4 p-3 bg-gray-100 rounded">
+                <p class="text-sm text-gray-700">
+                    ✅ 서버에서 숫자만 받고, 클라이언트에서 <strong>if-else</strong>로 메시지 선택<br>
+                    ✅ "마진이 높습니다", "적정합니다" 등 미리 작성된 문구 중 조건에 맞는 것 표시<br>
+                    ✅ **AI 자연어 생성 불필요** - 빠르고 안정적
+                </p>
+            </div>
+        </div>
+
+        <!-- 3️⃣ AI 생성 자연어 (서버에서 생성해서 전송) -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">3️⃣ AI 분석 (서버에서 자연어 생성 → 클라이언트는 그냥 표시)</h2>
+            
+            <div id="ai-recommendation">
+                <!-- 서버에서 완성된 AI 분석 텍스트 수신 -->
+                <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+                    <h4 class="font-bold text-purple-800 mb-2">🤖 AI 분석</h4>
+                    <p class="text-sm text-gray-700">현재 환율 상승 추세와 귀사의 노출 구조를 분석한 결과, 향후 2주 이내 헤지 비율을 70%까지 확대하는 것을 권장합니다. 예상 절감액은 1,200만원입니다.</p>
+                    <p class="text-xs text-gray-500 mt-2">신뢰도: 87%</p>
+                </div>
+            </div>
+
+            <div class="mt-4 p-3 bg-gray-100 rounded">
+                <p class="text-sm text-gray-700">
+                    ✅ AI가 **서버에서** 자연어 생성 (GPT API 등 사용)<br>
+                    ✅ 클라이언트는 완성된 텍스트를 **그냥 표시**만<br>
+                    ✅ 복잡한 분석/권고사항에만 선택적으로 사용
+                </p>
+            </div>
+        </div>
+
+        <!-- 4️⃣ 실제 서버 데이터 예시 (JSON 구조) -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">4️⃣ 서버에서 전송하는 JSON 데이터 예시</h2>
+            
+            <pre class="bg-gray-800 text-green-400 p-4 rounded overflow-x-auto text-xs"><code>{
+  "timestamp": "2026-02-03T14:35:22Z",
+  "exchange_rate": {
+    "current": 1350.30,
+    "change": 2.50,
+    "change_percent": 0.19
+  },
+  "margin": {
+    "current": 25.00,
+    "change": -3.00,
+    "average_industry": 28.50
+  },
+  "hedge": {
+    "ratio": 0.675,
+    "recommended": 0.70,
+    "amount": 15000000
+  },
+  "exposure": {
+    "amount": 2450000,
+    "currency": "USD"
+  },
+  "volatility": {
+    "current": 0.85,
+    "threshold": 1.0,
+    "status": "stable"
+  },
+  "alerts": [
+    {
+      "type": "warning",
+      "message": "마진이 업계 평균보다 낮습니다 - 좋은 협상 결과!"
+    }
+  ],
+  "ai_analysis": {
+    "recommendation": "현재 환율 상승 추세와 귀사의 노출 구조를 분석한 결과, 향후 2주 이내 헤지 비율을 70%까지 확대하는 것을 권장합니다.",
+    "confidence": 87,
+    "generated_at": "2026-02-03T14:35:20Z"
+  }
+}</code></pre>
+
+            <div class="mt-4 p-3 bg-blue-50 rounded">
+                <p class="text-sm text-gray-700">
+                    ✅ 서버는 **숫자 + AI 완성된 텍스트**만 전송<br>
+                    ✅ 클라이언트는 data-bind로 자동 매핑 + 조건부 메시지 선택<br>
+                    ✅ **실시간으로 모든 것을 자연어 생성할 필요 없음**
+                </p>
+            </div>
+        </div>
+
+        <!-- 5️⃣ 테스트 버튼 -->
+        <div class="bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg shadow-lg p-6 text-white">
+            <h2 class="text-xl font-bold mb-4">🧪 실시간 업데이트 테스트</h2>
+            <p class="text-sm mb-4">아래 버튼을 클릭하면 모의 서버 데이터로 화면이 업데이트됩니다</p>
+            
+            <div class="flex gap-4">
+                <button onclick="testUpdate('normal')" class="bg-white text-blue-600 hover:bg-blue-50 font-bold py-2 px-6 rounded-lg">
+                    일반 업데이트
+                </button>
+                <button onclick="testUpdate('alert')" class="bg-yellow-400 text-gray-800 hover:bg-yellow-300 font-bold py-2 px-6 rounded-lg">
+                    알림 발생
+                </button>
+                <button onclick="testUpdate('ai')" class="bg-purple-600 text-white hover:bg-purple-700 font-bold py-2 px-6 rounded-lg">
+                    AI 분석 갱신
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 테스트용 모의 데이터 업데이트
+        function testUpdate(type) {
+            let mockData = {};
+
+            if (type === 'normal') {
+                // 일반 숫자 업데이트
+                mockData = {
+                    exchange_rate: {
+                        current: 1350.30 + (Math.random() * 10 - 5),
+                        change: Math.random() * 5 - 2.5
+                    },
+                    margin: {
+                        current: 25 + (Math.random() * 10 - 5),
+                        change: Math.random() * 2 - 1
+                    },
+                    hedge: {
+                        ratio: 0.65 + Math.random() * 0.1,
+                        recommended: 0.70
+                    },
+                    exposure: {
+                        amount: 2450000 + Math.floor(Math.random() * 100000)
+                    },
+                    volatility: {
+                        current: 0.8 + Math.random() * 0.3,
+                        threshold: 1.0
+                    }
+                };
+            } else if (type === 'alert') {
+                // 알림 포함 업데이트
+                mockData = {
+                    exchange_rate: { current: 1360.50, change: 10.20 },
+                    margin: { current: 35.00, change: 8.00 },
+                    alerts: [
+                        {
+                            type: 'critical',
+                            message: '⚠️ 환율 급등! 헤지 비율 긴급 점검 필요'
+                        }
+                    ],
+                    volatility: {
+                        current: 1.8,
+                        threshold: 1.0
+                    }
+                };
+            } else if (type === 'ai') {
+                // AI 분석 갱신
+                mockData = {
+                    ai_analysis: {
+                        recommendation: `${new Date().toLocaleTimeString()} - 최신 분석: 환율 변동성이 증가하고 있습니다. 헤지 비율을 75%로 상향 조정하여 리스크를 최소화하세요. 예상 보호 효과는 2,500만원입니다.`,
+                        confidence: 92
+                    }
+                };
+            }
+
+            // 실제 업데이트 실행
+            window.realtimeHandler.updateDashboard(mockData);
+        }
+
+        // 페이지 로드 시 초기 데이터 설정
+        window.addEventListener('load', () => {
+            testUpdate('normal');
+        });
+    </script>
+</body>
+</html>

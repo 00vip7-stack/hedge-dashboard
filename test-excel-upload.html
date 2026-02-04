@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>엑셀 업로드 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">엑셀 파일 업로드 테스트</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">파일 선택</h2>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" class="mb-4">
+            <button onclick="uploadFile()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                업로드
+            </button>
+            
+            <div id="progress" class="mt-4 hidden">
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all" style="width: 0%"></div>
+                </div>
+                <p id="status" class="mt-2 text-sm text-gray-600"></p>
+            </div>
+        </div>
+        
+        <div id="result" class="bg-white rounded-lg shadow-md p-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">처리 결과</h2>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('파일을 선택해주세요.');
+                return;
+            }
+            
+            const progressDiv = document.getElementById('progress');
+            const progressBar = document.getElementById('progressBar');
+            const status = document.getElementById('status');
+            const resultDiv = document.getElementById('result');
+            const resultContent = document.getElementById('resultContent');
+            
+            progressDiv.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            
+            try {
+                status.textContent = '업로드 중...';
+                progressBar.style.width = '30%';
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('customerId', 'test_customer_' + Date.now());
+                formData.append('uploadDate', new Date().toISOString());
+                
+                const response = await fetch('http://localhost:9000/api/upload/excel', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                progressBar.style.width = '70%';
+                status.textContent = '처리 중...';
+                
+                const result = await response.json();
+                
+                progressBar.style.width = '100%';
+                status.textContent = '완료!';
+                
+                if (result.success) {
+                    // 결과 표시
+                    const data = result.data;
+                    
+                    let html = `
+                        <div class="space-y-4">
+                            <div class="border-b pb-3">
+                                <h3 class="font-semibold text-lg mb-2">📊 업로드 정보</h3>
+                                <p class="text-sm text-gray-600">파일명: ${data.fileName || file.name}</p>
+                                <p class="text-sm text-gray-600">처리 시간: ${new Date(data.processedAt).toLocaleString('ko-KR')}</p>
+                                <p class="text-sm text-gray-600">거래 건수: ${data.tradeCount}건</p>
+                            </div>
+                            
+                            <div class="border-b pb-3">
+                                <h3 class="font-semibold text-lg mb-2">📈 KPI</h3>
+                                <p class="text-sm text-gray-600">총 노출액: ${data.kpi.totalExposure.toLocaleString()}원</p>
+                                <p class="text-sm text-gray-600">헤지금액: ${data.kpi.hedgedAmount.toLocaleString()}원</p>
+                                <p class="text-sm text-gray-600">현재 헤지비율: ${data.kpi.currentHedgeRatio}%</p>
+                                <p class="text-sm text-gray-600">목표 헤지비율: ${data.kpi.targetHedgeRatio}%</p>
+                                <p class="text-sm ${data.kpi.gap < 0 ? 'text-red-600' : 'text-green-600'} font-semibold">
+                                    갭: ${data.kpi.gap > 0 ? '+' : ''}${data.kpi.gap}%p
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <h3 class="font-semibold text-lg mb-2">📋 거래 데이터 (처음 5건)</h3>
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th class="p-2 text-left">ID</th>
+                                            <th class="p-2 text-left">거래처</th>
+                                            <th class="p-2 text-left">통화</th>
+                                            <th class="p-2 text-right">금액</th>
+                                            <th class="p-2 text-left">헤지상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
+                    
+                    data.positions.slice(0, 5).forEach(pos => {
+                        html += `
+                            <tr class="border-b">
+                                <td class="p-2">${pos.id}</td>
+                                <td class="p-2">${pos.counterparty}</td>
+                                <td class="p-2">${pos.currency}</td>
+                                <td class="p-2 text-right">${pos.amount.toLocaleString()}</td>
+                                <td class="p-2">
+                                    <span class="px-2 py-1 rounded text-xs ${
+                                        pos.hedgeStatus === '전액헤지' ? 'bg-green-100 text-green-800' :
+                                        pos.hedgeStatus === '부분헤지' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                    }">
+                                        ${pos.hedgeStatus}
+                                    </span>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                                    </tbody>
+                                </table>
+                                ${data.positions.length > 5 ? `<p class="text-sm text-gray-500 mt-2">... 외 ${data.positions.length - 5}건</p>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultContent.innerHTML = html;
+                    resultDiv.classList.remove('hidden');
+                    
+                    setTimeout(() => {
+                        progressDiv.classList.add('hidden');
+                    }, 2000);
+                    
+                } else {
+                    throw new Error(result.error || '알 수 없는 오류');
+                }
+                
+            } catch (error) {
+                console.error('업로드 오류:', error);
+                status.textContent = '오류 발생!';
+                alert('업로드 실패: ' + error.message);
+                
+                setTimeout(() => {
+                    progressDiv.classList.add('hidden');
+                }, 2000);
+            }
+        }
+    </script>
+</body>
+</html>

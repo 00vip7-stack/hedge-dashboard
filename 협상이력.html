@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>협상 이력 관리 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        .history-card { transition: all 0.3s; }
+        .history-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+        
+        .print-only { display: none; }
+        @media print {
+            aside, header, .no-print { display: none !important; }
+            main { display: none !important; }
+            .print-only { 
+                display: block !important; 
+                width: 100%;
+                padding: 15mm;
+                font-size: 10pt; 
+            }
+            body { 
+                background: white !important; 
+                margin: 0 !important; 
+                padding: 0 !important;
+            }
+            @page {
+                margin: 15mm;
+                size: A4;
+            }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            
+            <a href="hedge-manager.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🖥️ 실시간 모니터</a>
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🚨 이탈 알림</a>
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📋 네고용 실시간 브리핑</a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔔 환율 변동성 알림</a>
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 익명 마진 벤치마킹</a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📄 사후 보고서 자동생성</a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 hover:bg-gray-800">⏰ 결제 타이밍 점수</a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🎯 환차손익 시뮬레이션</a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🏆 타사 평균 환율 랭킹</a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">📜 협상 이력 관리</a>
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">💹 달러선물 활용</a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">📜 협상 이력 관리</h1>
+                    <p class="text-sm text-gray-500 mt-1">은행별 협상 내역과 결과를 체계적으로 관리하고 분석하세요</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="addNewNegotiation()" class="no-print bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition transform hover:scale-105">
+                        ➕ 협상 기록 추가
+                    </button>
+                    <button onclick="window.print()" class="no-print bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition transform hover:scale-105">
+                        🖨️ 인쇄하기
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-8">
+            
+            <!-- 통계 요약 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold opacity-90">총 협상 건수</h3>
+                        <span class="text-3xl">💼</span>
+                    </div>
+                    <p class="text-4xl font-bold">24건</p>
+                    <p class="text-xs opacity-75 mt-1">최근 6개월</p>
+                </div>
+                
+                <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold opacity-90">협상 성공률</h3>
+                        <span class="text-3xl">✅</span>
+                    </div>
+                    <p class="text-4xl font-bold">87.5%</p>
+                    <p class="text-xs opacity-75 mt-1">21건 성공 / 24건</p>
+                </div>
+                
+                <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold opacity-90">평균 마진 개선</h3>
+                        <span class="text-3xl">📉</span>
+                    </div>
+                    <p class="text-4xl font-bold">-12.3원</p>
+                    <p class="text-xs opacity-75 mt-1">협상 후 평균</p>
+                </div>
+                
+                <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold opacity-90">절감 금액</h3>
+                        <span class="text-3xl">💰</span>
+                    </div>
+                    <p class="text-4xl font-bold">5.2억원</p>
+                    <p class="text-xs opacity-75 mt-1">누적 절감액</p>
+                </div>
+            </div>
+
+            <!-- 필터 및 검색 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">은행 선택</label>
+                        <select class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                            <option value="">전체 은행</option>
+                            <option value="kb">KB국민은행</option>
+                            <option value="shinhan">신한은행</option>
+                            <option value="hana">하나은행</option>
+                            <option value="woori">우리은행</option>
+                            <option value="nh">NH농협은행</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">협상 결과</label>
+                        <select class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                            <option value="">전체</option>
+                            <option value="success">성공</option>
+                            <option value="partial">부분 성공</option>
+                            <option value="fail">실패</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">기간</label>
+                        <select class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                            <option value="1m">최근 1개월</option>
+                            <option value="3m">최근 3개월</option>
+                            <option value="6m" selected>최근 6개월</option>
+                            <option value="1y">최근 1년</option>
+                            <option value="all">전체</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">검색</label>
+                        <input type="text" placeholder="담당자, 메모 검색..." class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 과거 거래 진단 -->
+            <div class="bg-gradient-to-br from-orange-50 to-white rounded-lg shadow-lg p-6 mb-6 border-2 border-orange-300">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">📊 과거 거래 진단: 낭비 수수료 분석</h2>
+                        <p class="text-sm text-gray-600">지난 1년간 거래 내역을 업로드하면 낭비된 은행 수수료를 자동 분석합니다</p>
+                    </div>
+                    <div class="text-6xl">🔍</div>
+                </div>
+                
+                <!-- 파일 업로드 영역 -->
+                <div id="uploadArea" class="border-2 border-dashed border-orange-300 rounded-lg p-8 text-center bg-white mb-4 hover:bg-orange-50 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(event)">
+                    <div class="text-orange-500 text-5xl mb-3">📁</div>
+                    <p class="text-lg font-semibold text-gray-700 mb-2">엑셀 파일을 드래그하거나 클릭하여 업로드</p>
+                    <p class="text-sm text-gray-500">Excel (.xlsx, .xls) 또는 CSV 파일 지원</p>
+                    <p class="text-xs text-gray-400 mt-2">필요 컬럼: 거래일자, 은행명, 거래통화, 거래금액, 적용환율, 기준환율</p>
+                </div>
+
+                <!-- 분석 결과 (초기에는 숨김) -->
+                <div id="analysisResult" class="hidden">
+                    <!-- 핵심 지표 -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-4 text-white">
+                            <p class="text-xs opacity-90 mb-1">총 낭비 금액</p>
+                            <p class="text-3xl font-bold" id="totalWaste">1억 2,300만원</p>
+                            <p class="text-xs opacity-75 mt-1">연간 누적</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+                            <p class="text-xs opacity-90 mb-1">평균 마진</p>
+                            <p class="text-3xl font-bold" id="avgMargin">+23.5원</p>
+                            <p class="text-xs opacity-75 mt-1">시장 평균 대비 +10.2원</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+                            <p class="text-xs opacity-90 mb-1">총 거래 건수</p>
+                            <p class="text-3xl font-bold" id="totalTx">342건</p>
+                            <p class="text-xs opacity-75 mt-1">지난 12개월</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white">
+                            <p class="text-xs opacity-90 mb-1">개선 가능 금액</p>
+                            <p class="text-3xl font-bold" id="potential">8,500만원</p>
+                            <p class="text-xs opacity-75 mt-1">연간 절감 가능</p>
+                        </div>
+                    </div>
+
+                    <!-- 은행별 분석 -->
+                    <div class="bg-white rounded-lg border p-6 mb-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">🏦 은행별 낭비 분석</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">은행</th>
+                                        <th class="px-4 py-3 text-right">거래 건수</th>
+                                        <th class="px-4 py-3 text-right">총 거래액</th>
+                                        <th class="px-4 py-3 text-right">평균 마진</th>
+                                        <th class="px-4 py-3 text-right">낭비 금액</th>
+                                        <th class="px-4 py-3 text-center">개선 필요도</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr class="hover:bg-red-50">
+                                        <td class="px-4 py-3 font-semibold">KB국민은행</td>
+                                        <td class="px-4 py-3 text-right">142건</td>
+                                        <td class="px-4 py-3 text-right">$2,850,000</td>
+                                        <td class="px-4 py-3 text-right font-bold text-red-600">+28.5원</td>
+                                        <td class="px-4 py-3 text-right font-bold text-red-600">5,200만원</td>
+                                        <td class="px-4 py-3 text-center"><span class="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold">매우 높음</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-orange-50">
+                                        <td class="px-4 py-3 font-semibold">우리은행</td>
+                                        <td class="px-4 py-3 text-right">89건</td>
+                                        <td class="px-4 py-3 text-right">$1,560,000</td>
+                                        <td class="px-4 py-3 text-right font-bold text-orange-600">+24.0원</td>
+                                        <td class="px-4 py-3 text-right font-bold text-orange-600">3,100만원</td>
+                                        <td class="px-4 py-3 text-center"><span class="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold">높음</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-yellow-50">
+                                        <td class="px-4 py-3 font-semibold">신한은행</td>
+                                        <td class="px-4 py-3 text-right">68건</td>
+                                        <td class="px-4 py-3 text-right">$1,240,000</td>
+                                        <td class="px-4 py-3 text-right font-bold text-yellow-600">+18.0원</td>
+                                        <td class="px-4 py-3 text-right font-bold text-yellow-600">2,400만원</td>
+                                        <td class="px-4 py-3 text-center"><span class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-bold">보통</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-green-50">
+                                        <td class="px-4 py-3 font-semibold">하나은행</td>
+                                        <td class="px-4 py-3 text-right">43건</td>
+                                        <td class="px-4 py-3 text-right">$980,000</td>
+                                        <td class="px-4 py-3 text-right font-bold text-green-600">+12.5원</td>
+                                        <td class="px-4 py-3 text-right font-bold text-green-600">1,600만원</td>
+                                        <td class="px-4 py-3 text-center"><span class="bg-green-500 text-white px-3 py-1 rounded text-xs font-bold">낮음</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 월별 추이 -->
+                    <div class="bg-white rounded-lg border p-6 mb-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">📈 월별 낭비 추이</h3>
+                        <div class="grid grid-cols-6 gap-2">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 mb-2">2025-08</p>
+                                <div class="bg-red-500 rounded" style="height: 80px;"></div>
+                                <p class="text-xs font-bold mt-2">980만원</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 mb-2">2025-09</p>
+                                <div class="bg-red-400 rounded" style="height: 90px;"></div>
+                                <p class="text-xs font-bold mt-2">1,120만원</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 mb-2">2025-10</p>
+                                <div class="bg-red-500 rounded" style="height: 120px;"></div>
+                                <p class="text-xs font-bold mt-2">1,450만원</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 mb-2">2025-11</p>
+                                <div class="bg-orange-500 rounded" style="height: 70px;"></div>
+                                <p class="text-xs font-bold mt-2">850만원</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 mb-2">2025-12</p>
+                                <div class="bg-red-600 rounded" style="height: 100px;"></div>
+                                <p class="text-xs font-bold mt-2">1,250만원</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-600 mb-2">2026-01</p>
+                                <div class="bg-orange-400 rounded" style="height: 60px;"></div>
+                                <p class="text-xs font-bold mt-2">720만원</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 개선 권고사항 -->
+                    <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-lg p-6 text-white">
+                        <h3 class="text-xl font-bold mb-4">💡 AI 개선 권고사항</h3>
+                        <div class="space-y-3">
+                            <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                                <p class="font-bold mb-2">🎯 최우선 조치: KB국민은행 마진 협상</p>
+                                <p class="text-sm opacity-90">
+                                    KB국민은행의 평균 마진(+28.5원)이 시장 평균(+13.3원)보다 <strong>15.2원 높습니다</strong>. 
+                                    즉시 재협상 시 연간 약 <strong>3,800만원</strong> 절감 가능합니다.
+                                </p>
+                            </div>
+                            <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                                <p class="font-bold mb-2">📊 거래 통합 전략</p>
+                                <p class="text-sm opacity-90">
+                                    현재 4개 은행에 분산된 거래를 2개 은행으로 통합하면 협상력이 강화되어 
+                                    추가로 연간 약 <strong>2,200만원</strong> 절감 가능합니다.
+                                </p>
+                            </div>
+                            <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                                <p class="font-bold mb-2">⏰ 타이밍 최적화</p>
+                                <p class="text-sm opacity-90">
+                                    분석 결과 월말(25-31일) 거래의 평균 마진이 <strong>4.2원 더 높습니다</strong>. 
+                                    거래 일정 조정으로 연간 약 <strong>1,500만원</strong> 절감 가능합니다.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 협상 이력 타임라인 -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">📅 협상 이력</h2>
+                
+                <!-- 협상 이력 항목들 -->
+                <div class="space-y-4">
+                    
+                    <!-- 협상 이력 1 -->
+                    <div class="history-card border-l-4 border-green-500 bg-gradient-to-r from-green-50 to-white rounded-lg shadow p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-lg font-bold text-gray-800">신한은행 마진 재협상</h3>
+                                    <span class="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold">성공</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-sm text-gray-600">
+                                    <span>📅 2026-01-28</span>
+                                    <span>👤 담당: 김영희 부장</span>
+                                    <span>☎️ 02-1234-5678</span>
+                                </div>
+                            </div>
+                            <button onclick="toggleDetails('nego1')" class="text-blue-600 hover:text-blue-800 font-semibold text-sm">
+                                상세보기 ▼
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">거래 금액</p>
+                                <p class="text-2xl font-bold text-gray-800">$200,000</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 전 마진</p>
+                                <p class="text-2xl font-bold text-red-600">+25.5원</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 후 마진</p>
+                                <p class="text-2xl font-bold text-green-600">+15.0원</p>
+                            </div>
+                        </div>
+                        
+                        <div id="nego1" class="hidden mt-4 pt-4 border-t">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 내용</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>• 최근 거래량 증가 근거 제시 (월 $500K → $800K)</li>
+                                        <li>• 타행 견적 활용 (하나은행 +12원 제시)</li>
+                                        <li>• 장기 거래 관계 강조 (3년 이상)</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 결과</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>✅ 마진 10.5원 인하 성공</li>
+                                        <li>✅ 향후 3개월 고정 마진 약속</li>
+                                        <li>✅ 연간 절감액: 약 8,400만원</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800 mb-2">메모</h4>
+                                <p class="text-sm text-gray-700 bg-yellow-50 p-3 rounded">
+                                    다음 협상 시 연말 실적 압박 시기 활용 가능. 김 부장님과의 관계 유지 중요.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 협상 이력 2 -->
+                    <div class="history-card border-l-4 border-blue-500 bg-gradient-to-r from-blue-50 to-white rounded-lg shadow p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-lg font-bold text-gray-800">KB국민은행 긴급 환전</h3>
+                                    <span class="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold">부분 성공</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-sm text-gray-600">
+                                    <span>📅 2026-01-15</span>
+                                    <span>👤 담당: 박철수 차장</span>
+                                    <span>☎️ 02-9876-5432</span>
+                                </div>
+                            </div>
+                            <button onclick="toggleDetails('nego2')" class="text-blue-600 hover:text-blue-800 font-semibold text-sm">
+                                상세보기 ▼
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">거래 금액</p>
+                                <p class="text-2xl font-bold text-gray-800">$350,000</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 전 마진</p>
+                                <p class="text-2xl font-bold text-red-600">+30.0원</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 후 마진</p>
+                                <p class="text-2xl font-bold text-orange-600">+22.0원</p>
+                            </div>
+                        </div>
+                        
+                        <div id="nego2" class="hidden mt-4 pt-4 border-t">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 내용</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>• 긴급 결제 건으로 시간 압박 있음</li>
+                                        <li>• 신한은행 마진(+15원) 견적 제시</li>
+                                        <li>• 대량 거래 할인 요청</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 결과</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>⚠️ 마진 8원 인하 (목표 15원 대비 부족)</li>
+                                        <li>⚠️ 긴급성으로 협상력 약화</li>
+                                        <li>✅ 연간 절감액: 약 2,800만원</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800 mb-2">메모</h4>
+                                <p class="text-sm text-gray-700 bg-yellow-50 p-3 rounded">
+                                    긴급 거래 시 협상력 약함. 향후 계획적 환전으로 사전 견적 확보 필요.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 협상 이력 3 -->
+                    <div class="history-card border-l-4 border-red-500 bg-gradient-to-r from-red-50 to-white rounded-lg shadow p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-lg font-bold text-gray-800">우리은행 마진 인하 요청</h3>
+                                    <span class="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">실패</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-sm text-gray-600">
+                                    <span>📅 2025-12-20</span>
+                                    <span>👤 담당: 이수민 과장</span>
+                                    <span>☎️ 02-5555-6666</span>
+                                </div>
+                            </div>
+                            <button onclick="toggleDetails('nego3')" class="text-blue-600 hover:text-blue-800 font-semibold text-sm">
+                                상세보기 ▼
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">거래 금액</p>
+                                <p class="text-2xl font-bold text-gray-800">$100,000</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 전 마진</p>
+                                <p class="text-2xl font-bold text-red-600">+28.0원</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 후 마진</p>
+                                <p class="text-2xl font-bold text-red-600">+28.0원</p>
+                            </div>
+                        </div>
+                        
+                        <div id="nego3" class="hidden mt-4 pt-4 border-t">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 내용</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>• 소액 거래로 협상력 부족</li>
+                                        <li>• 타행 견적 제시했으나 거부</li>
+                                        <li>• 거래량 증가 약속 제안</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 결과</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>❌ 마진 인하 거부</li>
+                                        <li>❌ 최소 거래 금액 $300K 이상 필요</li>
+                                        <li>⚠️ 대안: 거래 통합 후 재협상 제안받음</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800 mb-2">메모</h4>
+                                <p class="text-sm text-gray-700 bg-yellow-50 p-3 rounded">
+                                    소액 거래는 협상 어려움. 향후 거래 통합 후 $300K 이상 규모로 재시도 권장.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 협상 이력 4 -->
+                    <div class="history-card border-l-4 border-green-500 bg-gradient-to-r from-green-50 to-white rounded-lg shadow p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-lg font-bold text-gray-800">하나은행 정기 계약 갱신</h3>
+                                    <span class="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold">성공</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-sm text-gray-600">
+                                    <span>📅 2025-12-01</span>
+                                    <span>👤 담당: 정민호 팀장</span>
+                                    <span>☎️ 02-7777-8888</span>
+                                </div>
+                            </div>
+                            <button onclick="toggleDetails('nego4')" class="text-blue-600 hover:text-blue-800 font-semibold text-sm">
+                                상세보기 ▼
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">거래 금액</p>
+                                <p class="text-2xl font-bold text-gray-800">$500,000</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 전 마진</p>
+                                <p class="text-2xl font-bold text-red-600">+20.0원</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 border">
+                                <p class="text-xs text-gray-600 mb-1">협상 후 마진</p>
+                                <p class="text-2xl font-bold text-green-600">+12.0원</p>
+                            </div>
+                        </div>
+                        
+                        <div id="nego4" class="hidden mt-4 pt-4 border-t">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 내용</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>• 연간 정기 계약 갱신 시기 활용</li>
+                                        <li>• 경쟁사 견적 3개 은행 비교</li>
+                                        <li>• VIP 고객 혜택 요청</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">협상 결과</h4>
+                                    <ul class="text-sm text-gray-700 space-y-1">
+                                        <li>✅ 마진 8원 인하 성공</li>
+                                        <li>✅ 1년간 고정 마진 보장</li>
+                                        <li>✅ 연간 절감액: 약 4억원</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-800 mb-2">메모</h4>
+                                <p class="text-sm text-gray-700 bg-yellow-50 p-3 rounded">
+                                    계약 갱신 시기가 협상의 최적 타이밍. 정민호 팀장과 우호적 관계 유지 중.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 더보기 버튼 -->
+                <div class="mt-6 text-center">
+                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-8 rounded-lg transition">
+                        ⬇️ 이전 협상 이력 더보기 (20건 더 있음)
+                    </button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- 인쇄 전용 템플릿 -->
+    <div class="print-only">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+            <h1 style="font-size: 20pt; font-weight: bold; margin-bottom: 10px;">협상 이력 관리 보고서</h1>
+            <p style="font-size: 10pt; color: #666;">HedgeFreedom 위험관리시스템</p>
+            <p style="font-size: 9pt; color: #999;">보고서 생성일: <span id="printDate"></span></p>
+        </div>
+
+        <!-- 통계 요약 -->
+        <div style="margin-bottom: 25px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px;">📊 협상 성과 요약</h2>
+            <table style="width: 100%; font-size: 10pt;">
+                <tr>
+                    <td style="padding: 6px 0;"><strong>총 협상 건수:</strong></td>
+                    <td style="text-align: right;">24건 (최근 6개월)</td>
+                    <td style="padding: 6px 0; padding-left: 30px;"><strong>협상 성공률:</strong></td>
+                    <td style="text-align: right; font-weight: bold;">87.5%</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0;"><strong>평균 마진 개선:</strong></td>
+                    <td style="text-align: right; font-weight: bold;">-12.3원</td>
+                    <td style="padding: 6px 0; padding-left: 30px;"><strong>누적 절감액:</strong></td>
+                    <td style="text-align: right; font-weight: bold;">5.2억원</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- 주요 협상 이력 -->
+        <div style="margin-bottom: 25px;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px;">📋 주요 협상 이력</h2>
+            
+            <!-- 협상 1 -->
+            <div style="margin-bottom: 15px; padding: 12px; background: white; border: 1px solid #ddd;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <h3 style="font-size: 11pt; font-weight: bold;">신한은행 마진 재협상</h3>
+                    <span style="background: #f9f9f9; padding: 2px 8px; border: 1px solid #999; font-size: 9pt;"><strong>성공</strong></span>
+                </div>
+                <div style="font-size: 9pt; color: #666; margin-bottom: 8px;">
+                    📅 2026-01-28 | 👤 김영희 부장 | ☎️ 02-1234-5678
+                </div>
+                <table style="width: 100%; font-size: 9pt; margin-bottom: 8px;">
+                    <tr>
+                        <td><strong>거래금액:</strong> $200,000</td>
+                        <td><strong>협상 전:</strong> +25.5원</td>
+                        <td><strong>협상 후:</strong> +15.0원</td>
+                        <td><strong>절감액:</strong> 8,400만원/년</td>
+                    </tr>
+                </table>
+                <p style="font-size: 9pt; margin-top: 8px;">
+                    <strong>협상 포인트:</strong> 최근 거래량 증가(월 $500K→$800K), 타행 견적(하나은행 +12원), 장기 거래 관계(3년)
+                </p>
+            </div>
+
+            <!-- 협상 2 -->
+            <div style="margin-bottom: 15px; padding: 12px; background: white; border: 1px solid #ddd;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <h3 style="font-size: 11pt; font-weight: bold;">KB국민은행 긴급 환전</h3>
+                    <span style="background: #f9f9f9; padding: 2px 8px; border: 1px solid #999; font-size: 9pt;"><strong>부분성공</strong></span>
+                </div>
+                <div style="font-size: 9pt; color: #666; margin-bottom: 8px;">
+                    📅 2026-01-15 | 👤 박철수 차장 | ☎️ 02-9876-5432
+                </div>
+                <table style="width: 100%; font-size: 9pt; margin-bottom: 8px;">
+                    <tr>
+                        <td><strong>거래금액:</strong> $350,000</td>
+                        <td><strong>협상 전:</strong> +30.0원</td>
+                        <td><strong>협상 후:</strong> +22.0원</td>
+                        <td><strong>절감액:</strong> 2,800만원/년</td>
+                    </tr>
+                </table>
+                <p style="font-size: 9pt; margin-top: 8px;">
+                    <strong>교훈:</strong> 긴급 거래 시 협상력 약화. 향후 계획적 환전 필요.
+                </p>
+            </div>
+
+            <!-- 협상 3 -->
+            <div style="margin-bottom: 15px; padding: 12px; background: white; border: 1px solid #ddd;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <h3 style="font-size: 11pt; font-weight: bold;">하나은행 정기 계약 갱신</h3>
+                    <span style="background: #f9f9f9; padding: 2px 8px; border: 1px solid #999; font-size: 9pt;"><strong>성공</strong></span>
+                </div>
+                <div style="font-size: 9pt; color: #666; margin-bottom: 8px;">
+                    📅 2025-12-01 | 👤 정민호 팀장 | ☎️ 02-7777-8888
+                </div>
+                <table style="width: 100%; font-size: 9pt; margin-bottom: 8px;">
+                    <tr>
+                        <td><strong>거래금액:</strong> $500,000</td>
+                        <td><strong>협상 전:</strong> +20.0원</td>
+                        <td><strong>협상 후:</strong> +12.0원</td>
+                        <td><strong>절감액:</strong> 4억원/년</td>
+                    </tr>
+                </table>
+                <p style="font-size: 9pt; margin-top: 8px;">
+                    <strong>협상 포인트:</strong> 연간 계약 갱신 시기 활용, 경쟁사 3개 은행 견적 비교, VIP 혜택
+                </p>
+            </div>
+        </div>
+
+        <!-- 협상 인사이트 -->
+        <div style="margin-top: 30px; padding: 20px; background: white; border: 2px solid #333;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 15px;">💡 협상 인사이트</h2>
+            <div style="font-size: 10pt; line-height: 1.8;">
+                <p style="margin-bottom: 12px;">
+                    <strong>1. 성공 요인:</strong> 타행 견적 확보, 대량 거래 근거, 계약 갱신 시기 활용이 효과적
+                </p>
+                <p style="margin-bottom: 12px;">
+                    <strong>2. 주의사항:</strong> 소액/긴급 거래 시 협상력 약화, 최소 $300K 이상 권장
+                </p>
+                <p style="margin-bottom: 12px;">
+                    <strong>3. 권장사항:</strong> 계획적 환전 일정 수립, 복수 은행 견적 비교, 담당자 관계 관리
+                </p>
+            </div>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #ddd; padding-top: 15px;">
+            <p>본 보고서는 HedgeFreedom 위험관리시스템에서 자동 생성되었습니다.</p>
+            <p>문의: risk@hedgefreedom.com | Tel: 02-1234-5678</p>
+        </div>
+    </div>
+
+    <script>
+        // 상세 정보 토글
+        function toggleDetails(id) {
+            const element = document.getElementById(id);
+            if (element.classList.contains('hidden')) {
+                element.classList.remove('hidden');
+            } else {
+                element.classList.add('hidden');
+            }
+        }
+
+        // 새 협상 기록 추가
+        function addNewNegotiation() {
+            alert('새 협상 기록 추가 기능\n\n실제 시스템에서는 입력 폼이 표시됩니다.');
+        }
+
+        // 파일 업로드 처리
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // 파일명 표시
+            const fileName = file.name;
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.innerHTML = `
+                <div class="text-green-500 text-5xl mb-3">✅</div>
+                <p class="text-lg font-semibold text-gray-700 mb-2">파일 업로드 완료: ${fileName}</p>
+                <p class="text-sm text-gray-500">데이터 분석 중...</p>
+            `;
+
+            // 2초 후 분석 결과 표시 (실제로는 서버에서 처리)
+            setTimeout(() => {
+                uploadArea.innerHTML = `
+                    <div class="text-blue-500 text-5xl mb-3">📊</div>
+                    <p class="text-lg font-semibold text-green-700 mb-2">분석 완료!</p>
+                    <p class="text-sm text-gray-500">${fileName} - 342건의 거래 분석됨</p>
+                `;
+                
+                // 분석 결과 표시
+                document.getElementById('analysisResult').classList.remove('hidden');
+                
+                // 결과 영역으로 부드럽게 스크롤
+                document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 2000);
+        }
+
+        // 드래그 앤 드롭 이벤트
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('border-orange-500', 'bg-orange-100');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-orange-500', 'bg-orange-100');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-orange-500', 'bg-orange-100');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFileUpload({ target: { files: files } });
+            }
+        });
+
+        // 인쇄용 날짜 설정
+        window.onload = function() {
+            const today = new Date();
+            document.getElementById('printDate').textContent = today.toLocaleDateString('ko-KR');
+        };
+    </script>
+</body>
+</html>

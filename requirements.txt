@@ -1,0 +1,15 @@
+# HedgeFreedom Mock Server 의존성
+# Python 3.7 이상 필요
+
+# Excel 파일 처리
+openpyxl>=3.0.0         # Excel (.xlsx) 파일 읽기/쓰기
+
+# 보안 및 암호화
+cryptography>=41.0.0    # AES-256 암호화, PBKDF2 키 유도
+
+# 프로덕션 환경 (고성능, 대규모 트래픽)
+gunicorn>=20.1.0        # WSGI HTTP 서버
+gevent>=21.12.0         # 비동기 워커 (선택)
+
+# 모니터링 (선택)
+# psutil>=5.9.0         # 시스템 리소스 모니터링

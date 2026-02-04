@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>결제 타이밍 점수 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        .score-excellent { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .score-good { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        .score-neutral { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .score-poor { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .pulse-animation { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
+        @media print {
+            .no-print { display: none; }
+            body { background: white; }
+            aside { display: none; }
+            header { border: none !important; }
+            main { padding: 20px !important; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            
+            <a href="hedge-manager.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🖥️ 실시간 모니터</a>
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🚨 이탈 알림</a>
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📋 네고용 실시간 브리핑</a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔔 환율 변동성 알림</a>
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 익명 마진 벤치마킹</a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📄 사후 보고서 자동생성</a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">⏰ 결제 타이밍 점수</a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🎯 환차손익 시뮬레이션</a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🏆 타사 평균 환율 랭킹</a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📜 협상 이력 관리</a>
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">💹 달러선물 활용</a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b p-4 flex items-center justify-between no-print">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">⏰ 결제 타이밍 점수화 (Buy/Sell 신호)</h1>
+                <p class="text-sm text-gray-500 mt-1">기술적 분석 없이도 "지금 사야 하나, 기다려야 하나"를 점수로 확인하세요</p>
+            </div>
+            <button onclick="window.print()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg transition shadow-lg flex items-center gap-2">
+                🖨️ 인쇄하기
+            </button>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-8">
+            
+            <!-- 오늘의 종합 점수 -->
+            <div class="bg-white rounded-lg shadow-lg p-8 mb-6 border-t-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-700 mb-2">🎯 오늘의 결제 타이밍 종합 점수</h2>
+                        <p class="text-sm text-gray-500">마지막 업데이트: 2026-02-03 14:35</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="score-excellent text-white rounded-2xl px-8 py-6 shadow-xl">
+                            <div class="text-6xl font-bold">85</div>
+                            <div class="text-sm mt-2 font-medium">매우 유리</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <p class="text-green-800 font-medium">💡 <strong>추천 행동:</strong> 오늘 결제를 집행하시면 유리합니다. 시스템 점수가 높아 상사에게 근거로 제시할 수 있습니다.</p>
+                </div>
+                
+                <!-- 상사 보고용 근거 문구 -->
+                <div class="mt-4 p-5 bg-blue-50 rounded-lg border-2 border-blue-300">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-blue-900 mb-2">📋 상사 보고용 의사결정 근거</h3>
+                            <div class="bg-white rounded-lg p-4 border border-blue-200">
+                                <p class="text-gray-800 leading-relaxed">
+                                    "HedgeFreedom 시스템의 타이밍 점수가 <strong class="text-blue-600">85점(매우 유리)</strong>으로 
+                                    집행 권장 수준에 도달하여 오늘 결제를 실행했습니다. 
+                                    현재 환율이 20일 평균 대비 <strong class="text-green-600">0.7% 저렴</strong>하며, 
+                                    기술적 지표(RSI 35)도 과매도 구간으로 반등 가능성이 높습니다."
+                                </p>
+                            </div>
+                            <button onclick="copyToClipboard()" class="mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                                📋 클립보드에 복사
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 예상 손실 경고 (대기 시) -->
+                <div class="mt-4 p-5 bg-orange-50 rounded-lg border-2 border-orange-300">
+                    <h3 class="font-bold text-orange-900 mb-2">⚠️ 대기 시 예상 시나리오</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white rounded-lg p-4 border border-orange-200">
+                            <p class="text-xs text-gray-500 mb-1">내일 예상 점수</p>
+                            <p class="text-3xl font-bold text-orange-600">62점</p>
+                            <p class="text-xs text-gray-600 mt-2">평균 대비 0.4% 불리 예상</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border border-orange-200">
+                            <p class="text-xs text-gray-500 mb-1">대기 시 예상 손실</p>
+                            <p class="text-3xl font-bold text-red-600">-580만원</p>
+                            <p class="text-xs text-gray-600 mt-2">USD 100만 거래 기준</p>
+                        </div>
+                    </div>
+                    <p class="text-orange-800 text-sm mt-3">
+                        💡 시스템 분석 결과, 현재 시점이 향후 3일 중 가장 유리한 타이밍입니다.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 시스템 정확도 검증 -->
+            <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg shadow-lg p-6 mb-6 border border-indigo-200">
+                <h2 class="text-xl font-bold text-indigo-900 mb-4">✅ 타이밍 점수 시스템 정확도 검증</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                    <div class="bg-white rounded-lg p-5 shadow border-l-4 border-green-500">
+                        <h3 class="font-semibold text-gray-700 mb-3">80점 이상 (매우 유리)</h3>
+                        <div class="text-center mb-2">
+                            <p class="text-4xl font-bold text-green-600">+2.3%</p>
+                            <p class="text-xs text-gray-500 mt-1">평균 이득률</p>
+                        </div>
+                        <p class="text-sm text-gray-600">
+                            지난 3개월간 80점 이상일 때 집행한 고객들은 
+                            <strong class="text-green-700">평균 2.3% 이득</strong>을 봤습니다.
+                        </p>
+                        <div class="mt-3 text-xs text-gray-500">
+                            실제 사례: 23건 / 성공률 91%
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg p-5 shadow border-l-4 border-blue-500">
+                        <h3 class="font-semibold text-gray-700 mb-3">60~79점 (양호)</h3>
+                        <div class="text-center mb-2">
+                            <p class="text-4xl font-bold text-blue-600">+0.8%</p>
+                            <p class="text-xs text-gray-500 mt-1">평균 이득률</p>
+                        </div>
+                        <p class="text-sm text-gray-600">
+                            중간 점수대에서는 
+                            <strong class="text-blue-700">소폭 이득</strong>이 발생했습니다.
+                        </p>
+                        <div class="mt-3 text-xs text-gray-500">
+                            실제 사례: 45건 / 성공률 67%
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg p-5 shadow border-l-4 border-red-500">
+                        <h3 class="font-semibold text-gray-700 mb-3">40점 이하 (불리)</h3>
+                        <div class="text-center mb-2">
+                            <p class="text-4xl font-bold text-red-600">-1.5%</p>
+                            <p class="text-xs text-gray-500 mt-1">평균 손실률</p>
+                        </div>
+                        <p class="text-sm text-gray-600">
+                            낮은 점수에서 집행 시 
+                            <strong class="text-red-700">평균 1.5% 손실</strong>이 발생했습니다.
+                        </p>
+                        <div class="mt-3 text-xs text-gray-500">
+                            실제 사례: 12건 / 성공률 25%
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-indigo-100 rounded-lg p-4 border border-indigo-300">
+                    <p class="text-indigo-900 font-semibold text-center">
+                        📊 <strong>결론:</strong> 타이밍 점수가 높을수록 실제 거래 성과도 우수했습니다. 
+                        이 데이터를 근거로 의사결정을 하시면 됩니다.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 통화별 타이밍 점수 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                
+                <!-- USD -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">USD/KRW</h3>
+                        <span class="text-2xl">🇺🇸</span>
+                    </div>
+                    <div class="text-center mb-4">
+                        <div class="score-excellent text-white rounded-xl px-6 py-4 inline-block">
+                            <div class="text-4xl font-bold">85</div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2">매우 유리 - 지금 매수 권장</p>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">현재 환율:</span>
+                            <span class="font-semibold">1,325.50원</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">20일 평균:</span>
+                            <span class="font-semibold">1,335.20원</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">RSI 지표:</span>
+                            <span class="font-semibold text-green-600">35 (과매도)</span>
+                        </div>
+                    </div>
+                    <button class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition">
+                        지금 결제 집행
+                    </button>
+                </div>
+
+                <!-- EUR -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">EUR/KRW</h3>
+                        <span class="text-2xl">🇪🇺</span>
+                    </div>
+                    <div class="text-center mb-4">
+                        <div class="score-good text-white rounded-xl px-6 py-4 inline-block">
+                            <div class="text-4xl font-bold">72</div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2">양호 - 매수 고려</p>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">현재 환율:</span>
+                            <span class="font-semibold">1,445.80원</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">20일 평균:</span>
+                            <span class="font-semibold">1,450.30원</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">RSI 지표:</span>
+                            <span class="font-semibold text-blue-600">45 (중립)</span>
+                        </div>
+                    </div>
+                    <button class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition">
+                        결제 고려
+                    </button>
+                </div>
+
+                <!-- JPY -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">JPY/KRW</h3>
+                        <span class="text-2xl">🇯🇵</span>
+                    </div>
+                    <div class="text-center mb-4">
+                        <div class="score-neutral text-white rounded-xl px-6 py-4 inline-block">
+                            <div class="text-4xl font-bold">58</div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2">중립 - 대기 권장</p>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">현재 환율:</span>
+                            <span class="font-semibold">9.15원</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">20일 평균:</span>
+                            <span class="font-semibold">9.10원</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">RSI 지표:</span>
+                            <span class="font-semibold text-orange-600">55 (중립)</span>
+                        </div>
+                    </div>
+                    <button class="mt-4 w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-lg transition">
+                        대기 권장
+                    </button>
+                </div>
+            </div>
+
+            <!-- 점수 산정 기준 -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">📊 점수 산정 기준</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold text-gray-700 mb-2">✅ 85점 이상 (매우 유리)</h3>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• 현재가가 20일 평균 대비 1% 이상 저렴</li>
+                            <li>• RSI 30~40 (과매도 구간)</li>
+                            <li>• 이동평균선 골든크로스 발생</li>
+                            <li>• 변동성 낮은 안정 구간</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold text-gray-700 mb-2">⚠️ 40점 이하 (매우 불리)</h3>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• 현재가가 20일 평균 대비 1% 이상 비싸</li>
+                            <li>• RSI 70 이상 (과매수 구간)</li>
+                            <li>• 이동평균선 데드크로스 발생</li>
+                            <li>• 급격한 변동성 증가</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시간대별 추이 -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">📈 오늘 타이밍 점수 추이 (USD/KRW)</h2>
+                <canvas id="timingChart" height="80"></canvas>
+            </div>
+
+            <!-- 실제 활용 가이드 -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📚 실제 활용 가이드</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-5 bg-green-50 rounded-lg border border-green-200">
+                        <h3 class="font-bold text-green-800 mb-3 flex items-center">
+                            <span class="text-2xl mr-2">✅</span> 이렇게 사용하세요
+                        </h3>
+                        <ul class="space-y-2 text-sm text-gray-700">
+                            <li class="flex items-start">
+                                <span class="text-green-600 mr-2">1.</span>
+                                <span>아침 출근 시 타이밍 점수 확인</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-green-600 mr-2">2.</span>
+                                <span><strong>80점 이상이면 즉시 집행</strong> (상사에게 근거 문구 전달)</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-green-600 mr-2">3.</span>
+                                <span>60~79점이면 당일 중 재확인 후 결정</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-green-600 mr-2">4.</span>
+                                <span>40점 이하면 다음날까지 대기</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-green-600 mr-2">5.</span>
+                                <span>집행 후 사후보고서 자동생성으로 즉시 보고</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="p-5 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 class="font-bold text-blue-800 mb-3 flex items-center">
+                            <span class="text-2xl mr-2">💼</span> 상사 설득 스크립트
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="bg-white rounded-lg p-3 border border-blue-200">
+                                <p class="text-xs text-gray-500 mb-1">점수 높을 때</p>
+                                <p class="text-sm text-gray-800">
+                                    "시스템 분석 결과 <strong class="text-green-600">85점(매우 유리)</strong>이 나와 
+                                    오늘 집행이 최적입니다. 과거 데이터상 이 점수대에서 
+                                    <strong>평균 2.3% 이득</strong>이 발생했습니다."
+                                </p>
+                            </div>
+                            <div class="bg-white rounded-lg p-3 border border-blue-200">
+                                <p class="text-xs text-gray-500 mb-1">점수 낮을 때</p>
+                                <p class="text-sm text-gray-800">
+                                    "현재 시스템 점수가 <strong class="text-orange-600">42점(불리)</strong>으로 
+                                    대기가 권장됩니다. 내일 점수 상승 예상되어 
+                                    1~2일 후 재검토하겠습니다."
+                                </p>
+                            </div>
+                            <div class="bg-white rounded-lg p-3 border border-blue-200">
+                                <p class="text-xs text-gray-500 mb-1">긴급 집행 필요 시</p>
+                                <p class="text-sm text-gray-800">
+                                    "점수는 <strong>65점(중립)</strong>이나 결제일 임박으로 
+                                    오늘 집행합니다. 시스템상 큰 손실 위험은 없습니다."
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-300">
+                    <h3 class="font-bold text-purple-900 mb-2">🎯 핵심 포인트</h3>
+                    <p class="text-purple-800 text-sm">
+                        이 시스템의 가장 큰 장점은 <strong>"선택장애 제거"</strong>입니다. 
+                        더 이상 "지금 사야 하나, 기다려야 하나" 고민하지 마세요. 
+                        점수가 80점 이상이면 <strong class="text-green-700">자신 있게 집행</strong>하고, 
+                        낮으면 <strong class="text-blue-700">당당하게 대기</strong>하면 됩니다. 
+                        <strong class="text-indigo-700">시스템이 책임져 줍니다.</strong>
+                    </p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // 클립보드 복사 기능
+        function copyToClipboard() {
+            const text = '"HedgeFreedom 시스템의 타이밍 점수가 85점(매우 유리)으로 집행 권장 수준에 도달하여 오늘 결제를 실행했습니다. 현재 환율이 20일 평균 대비 0.7% 저렴하며, 기술적 지표(RSI 35)도 과매도 구간으로 반등 가능성이 높습니다."';
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ 보고용 문구가 클립보드에 복사되었습니다!\n\n이제 상사에게 붙여넣기만 하면 됩니다.');
+            }).catch(err => {
+                alert('복사 실패: ' + err);
+            });
+        }
+        
+        // 타이밍 점수 추이 차트
+        const ctx = document.getElementById('timingChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
+                datasets: [{
+                    label: '타이밍 점수',
+                    data: [78, 80, 82, 83, 84, 85, 85],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 60,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '점';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

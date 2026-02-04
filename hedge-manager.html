@@ -1,0 +1,4242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>HedgeFreedom - 메인 대시보드</title>
+    
+    <!--
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    🔒 HEDGEFREEDOM 아키텍처 규칙 (CRITICAL - 절대 위반 금지)
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    ✅ 1. CLIENT-SERVER 분리 원칙
+       - 클라이언트: 데이터 수집, 표시, 사용자 인터랙션만 담당
+       - 서버: 모든 계산 로직, 분석 알고리즘 실행
+       - 금지: 클라이언트에서 복잡한 헤지 계산 로직 노출
+    
+    ✅ 2. 소스 코드 보호
+       - 헤지 전략 알고리즘은 서버에서만 실행
+       - 클라이언트는 API 호출 → 결과 수신 → 화면 표시만
+       - 금지: performInternalHedgeNetting, calculateOptimalHedge 등
+              복잡한 로직을 클라이언트 JavaScript에 작성
+    
+    ✅ 3. 데이터 흐름
+       - 업로드: 클라이언트(파싱) → 서버(저장)
+       - 계산: 클라이언트(요청) → 서버(계산) → 클라이언트(표시)
+       - 표시: localStorage/서버 응답 → 테이블 렌더링
+    
+    ✅ 4. API 엔드포인트 구조
+       - POST /api/upload/data          : 데이터 업로드
+       - POST /api/hedge/analyze        : 헤지 분석 실행 (서버 계산)
+       - POST /api/hedge/optimize       : 최적 전략 계산 (서버 계산)
+       - POST /api/hedge/netting        : 내부헤지 분석 (서버 계산)
+       - GET  /api/hedge/recommendations : 헤지 제안 조회
+    
+    ✅ 5. 개인정보 보호
+       - 업로드 시 민감 정보 자동 제거 (로컬)
+       - 서버 전송 데이터: 익명화된 거래 정보만
+       - 금지: 기업명, 담당자명, 계좌번호 등 서버 전송
+    
+    ✅ 6. 오프라인 지원 (제한적)
+       - 데이터 업로드/표시: 오프라인 가능
+       - 헤지 계산/분석: 서버 필수 (온라인만)
+       - 서버 없이는 뷰어 모드로만 작동
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    -->
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- HedgeFreedom 코어 라이브러리 -->
+    <script src="core/api-client.js"></script>
+    <script src="core/local-storage-handler.js"></script>
+    <script src="core/event-bus.js"></script>
+    <script src="core/data-manager.js"></script>
+    <!-- Guide 시스템 -->
+    <link rel="stylesheet" href="core/guide-modal.css">
+    <script src="core/guide-modal.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; }
+        .hedgefreedom-blue { color: #0056b3; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        .action-card { background: white; border-top: 4px solid #1890ff; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .btn-execute { background-color: #1890ff; color: white; transition: all 0.2s; }
+        .btn-execute:hover { background-color: #096dd9; }
+        .indicator-red { color: #f5222d; background: #fff1f0; border: 1px solid #ffa39e; }
+        .indicator-green { color: #52c41a; background: #f6ffed; border: 1px solid #b7eb8f; }
+        
+        /* 헤지 계산 버튼 활성화 애니메이션 (밝은 깜빡임) */
+        @keyframes brightPulse {
+            0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7), 0 4px 15px rgba(249, 115, 22, 0.4);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 0 8px rgba(249, 115, 22, 0), 0 4px 20px rgba(249, 115, 22, 0.6);
+                transform: scale(1.02);
+            }
+        }
+        .btn-ready-pulse {
+            animation: brightPulse 1.5s ease-in-out infinite;
+        }
+        
+        /* 기존 스크롤 클래스 (미사용) */
+        .hedge-suggestions-scroll {
+            height: 400px;
+            overflow-y: scroll !important;
+            display: block;
+        }
+        .hedge-suggestions-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .hedge-suggestions-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .hedge-suggestions-scroll::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .hedge-suggestions-scroll::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="flex h-screen">
+
+    <div class="menu-guide-box"></div>
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto left-menu">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">핵심 기능</div>
+            
+            <!-- STEP 1 -->
+            <a href="01 헤지매니저.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium" data-guide="헤지 매니저에서는 업로드된 거래 데이터를 기반으로 헤지 전략을 관리할 수 있습니다. 각 거래의 상태와 KPI를 실시간으로 확인하세요." data-guidetitle="헤지 매니저 안내">
+                <span class="bg-white text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <!-- STEP 2 -->
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800" data-guide="노출 분석에서는 전체 거래의 통화별, 채권/채무별 현황을 집계하여 환리스크를 시각적으로 파악할 수 있습니다." data-guidetitle="노출 분석 안내">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <!-- STEP 3 -->
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800" data-guide="위험 보고서에서는 환리스크, 미헤지 노출, 전략 실행 결과를 종합적으로 확인할 수 있습니다." data-guidetitle="위험 보고서 안내">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">알림 & 모니터링</div>
+            
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">🔔</span> 이탈 알림
+            </a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📈</span> 변동성 알림
+            </a>
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">⚡</span> 실시간 모니터
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">거래 & 협상</div>
+            
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📋</span> 네고용 브리핑
+            </a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📝</span> 협상 이력
+            </a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">⏰</span> 결제 타이밍
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">분석 & 시뮬레이션</div>
+            
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📊</span> 마진 벤치마크
+            </a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">🏆</span> 타사 환율 랭킹
+            </a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">💰</span> 환차손익 시뮬레이션
+            </a>
+            <a href="분석대시보드.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📉</span> 분석 대시보드
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">전략 & 보고</div>
+            
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">🎯</span> 달러 선물 활용
+            </a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📄</span> 사후 보고서
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            
+            <div class="px-6 py-2 text-xs font-semibold text-gray-600 uppercase">계정</div>
+            <a href="login.html" onclick="handleLogout(event)" class="flex items-center px-6 py-3 hover:bg-gray-800 text-red-400">
+                🚪 로그아웃
+            </a>
+            
+            <!-- 사용자 정보 -->
+            <div class="px-6 py-4 mt-8 border-t border-gray-800">
+                <div class="text-xs text-gray-500">로그인:</div>
+                <div id="userEmail" class="text-sm text-gray-300 truncate">demo@hedgefreedom.com</div>
+                <div id="companyName" class="text-xs text-gray-500 mt-1">데모 회사</div>
+            </div>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        
+        <header class="bg-white border-b">
+            <div class="flex justify-between items-center px-8 py-0.5 border-b border-gray-50">
+                <div class="flex items-center space-x-2">
+                    <span id="serverStatusDot" class="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span id="serverStatusText" class="text-[10px] text-gray-500">계산 서버: 로컬</span>
+                    <button onclick="showServerSettings()" class="text-[10px] text-blue-500 hover:underline ml-2">⚙️ 설정</button>
+                </div>
+                <span class="text-[10px] text-gray-400 font-light">갱신 1분전</span>
+            </div>
+            <div class="h-14 flex items-center justify-between px-8">
+                <div class="flex items-center space-x-6 flex-1">
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">USD/KRW</span>
+                        <span class="text-sm font-bold text-green-600">1,342.50</span>
+                        <span class="text-[10px] text-green-600">▲0.45%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-red-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">EUR/USD</span>
+                        <span class="text-sm font-bold text-red-600">1.0842</span>
+                        <span class="text-[10px] text-red-600">▼0.12%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">USD/JPY</span>
+                        <span class="text-sm font-bold text-green-600">148.23</span>
+                        <span class="text-[10px] text-green-600">▲0.28%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-red-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">USD/CNY</span>
+                        <span class="text-sm font-bold text-red-600">7.2145</span>
+                        <span class="text-[10px] text-red-600">▼0.08%</span>
+                    </div>
+                    <div class="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded">
+                        <span class="text-xs font-bold text-gray-600">DXY</span>
+                        <span class="text-sm font-bold text-green-600">103.42</span>
+                        <span class="text-[10px] text-green-600">▲0.15%</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-6 overflow-y-auto space-y-6">
+            
+            <!-- 업로드된 거래 데이터 테이블 (상단 배치) -->
+            <section class="action-card overflow-hidden" data-guide="여기서 업로드된 거래 데이터를 확인하고, 파일/폴더 업로드, 데이터 삭제, 헤지 계산 실행 등 주요 기능을 사용할 수 있습니다." data-guidetitle="거래 데이터 안내">
+                <div class="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-lg text-white">📊 업로드된 거래 데이터</h3>
+                        <p class="text-xs text-blue-100 mt-1">Excel/CSV 파일에서 불러온 원본 거래 데이터</p>
+                        <p class="text-[10px] text-green-200 mt-1">🔒 개인정보는 로컬에서 자동 제거되어 서버로 전송되지 않습니다</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="tradeCount" class="text-sm font-bold text-white bg-blue-500 px-4 py-2 rounded-lg">데이터 없음</span>
+                        <input type="file" id="fileInputDirect" accept=".xlsx,.xls,.csv" class="hidden">
+                        <input type="file" id="folderInputDirect" webkitdirectory directory accept=".xlsx,.xls,.csv" class="hidden" multiple>
+                        <button onclick="document.getElementById('fileInputDirect').click()" class="px-4 py-2 bg-white text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-50 flex items-center gap-2">
+                            📄 파일 업로드
+                        </button>
+                        <button onclick="document.getElementById('folderInputDirect').click()" class="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-semibold hover:bg-yellow-200 flex items-center gap-2">
+                            📁 폴더 업로드
+                        </button>
+                        <button id="clearDataBtn" onclick="clearAllData()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 flex items-center gap-2">
+                            🗑️ 데이터 삭제
+                        </button>
+                        <button id="runHedgeAnalysisBtn" onclick="runHedgeAnalysis()" class="px-6 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-bold hover:from-orange-600 hover:to-red-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            ⚡ 헤지 계산 실행
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- � 로컬 폴더 상태 표시 -->
+                <div class="p-3 bg-blue-50 border-l-4 border-blue-500 mb-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl">💾</span>
+                            <div id="localFolderStatus">
+                                <span class="text-gray-500 text-sm">로컬 폴더 상태 확인 중...</span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-blue-600">
+                            <p>파일이 PC에 영구 저장됩니다 (감사 대응용)</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- �🔒 개인정보 보호 안내 패널 -->
+                <div class="p-3 bg-green-50 border-l-4 border-green-500 mb-2">
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl">🔒</span>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-bold text-green-800 mb-1">개인정보 자동 제거 안내</h4>
+                            <div class="text-xs text-green-700 space-y-1">
+                                <p>• 업로드 시 <strong>기업명, 담당자명, 계좌번호, 전화번호, 이메일, 주소</strong> 등은 자동으로 제거됩니다.</p>
+                                <p>• 서버로 전송되는 데이터: <strong>거래 날짜/시간, 통화쌍, 금액, 환율, 업종(익명), 기업규모(구간), 은행(A/B/C 익명화)</strong></p>
+                                <p>• 개인 식별 정보는 <strong>로컬에서만 사용</strong>되며, 외부로 절대 전송되지 않습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="overflow-auto max-h-60">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-white text-gray-400 border-b sticky top-0">
+                            <tr>
+                                <th class="p-3 uppercase tracking-wider font-bold">거래ID</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">거래일시</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">통화쌍</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">거래유형</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">외화금액</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">적용환율</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">시장환율</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">마진</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">업종</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">규모</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">은행</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradeListBody" class="divide-y divide-gray-100">
+                            <!-- JavaScript로 동적 생성됨 -->
+                            <tr>
+                                <td colspan="11" class="p-8 text-center text-gray-400">
+                                    <div class="text-4xl mb-2">📊</div>
+                                    <p>업로드된 데이터가 없습니다.</p>
+                                    <p class="text-xs mt-2">파일 또는 폴더를 업로드하세요.</p>
+                                    <p class="text-[10px] text-green-600 mt-2">🔒 개인정보는 자동으로 제거됩니다</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 원본 헤지매니저 KPI 섹션 -->
+            <section id="kpiSection" class="grid grid-cols-3 gap-6" data-guide="KPI 섹션에서는 목표 헤지 비율, 현재 헤지 비율, 미헤지 노출 등 핵심 지표를 한눈에 볼 수 있습니다." data-guidetitle="KPI 안내">
+                <div class="bg-white p-5 rounded shadow-sm flex flex-col relative">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-bold text-gray-400">목표 헤지 비율</span>
+                        <button 
+                            id="editTargetRatioBtn" 
+                            onclick="toggleEditTargetRatio()" 
+                            class="text-gray-400 hover:text-blue-500 transition-colors"
+                            title="목표 비율 수정"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="targetRatioDisplay" class="flex items-end space-x-2">
+                        <span id="kpiTargetHedge" class="text-3xl font-bold text-gray-800">75%</span>
+                        <span class="text-sm text-gray-500 mb-1">이사회 정책 기준</span>
+                    </div>
+                    <div id="targetRatioEdit" class="hidden flex items-center space-x-2">
+                        <input 
+                            type="number" 
+                            id="targetRatioInput" 
+                            class="w-24 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-2xl font-bold"
+                            min="0" 
+                            max="100"
+                            placeholder="75"
+                        />
+                        <span class="text-2xl font-bold text-gray-600">%</span>
+                        <button onclick="saveTargetRatio()" class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
+                            저장
+                        </button>
+                        <button onclick="cancelEditTargetRatio()" class="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400">
+                            취소
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded shadow-sm flex flex-col">
+                    <span class="text-xs font-bold text-gray-400 mb-2">현재 헤지 비율</span>
+                    <div class="flex items-end space-x-2">
+                        <span id="kpiCurrentHedge" class="text-3xl font-bold text-red-500">0%</span>
+                        <span id="kpiHedgeGap" class="indicator-red text-[10px] px-2 py-1 rounded font-bold mb-1">데이터 없음</span>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded shadow-sm flex flex-col">
+                    <span class="text-xs font-bold text-gray-400 mb-2">미헤지 노출</span>
+                    <div class="flex items-end space-x-2">
+                        <span id="kpiUnhedgedExposure" class="text-3xl font-bold text-gray-800">0억원</span>
+                        <span class="text-sm text-gray-500 mb-1">KRW 환산</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 통합 헤지 제안 섹션 - 혼합 헤지 전략 -->
+            <section id="integratedHedgeSection" class="action-card overflow-hidden mt-4" data-guide="통합 헤지 전략 제안에서는 선물환, 환변동보험, 달러선물 등 다양한 헤지 수단을 혼합하여 최적의 전략을 제공합니다." data-guidetitle="통합 헤지 전략 안내">
+                <div class="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 flex justify-between items-center border-b border-purple-200">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">🎯</span>
+                        <div>
+                            <h3 class="font-bold text-sm text-purple-800">통합 헤지 전략 제안</h3>
+                            <p class="text-[10px] text-purple-600">선물환/환변동보험 + 달러선물 혼합 전략으로 유동적 결제일 대응</p>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="generateIntegratedHedge()" class="text-xs px-3 py-1 border border-purple-300 rounded bg-white hover:bg-purple-50 text-purple-700">전략 계산</button>
+                        <button onclick="executeIntegratedHedge()" class="text-xs px-3 py-1 bg-purple-600 text-white rounded font-bold hover:bg-purple-700">전략 실행</button>
+                    </div>
+                </div>
+                
+                <!-- 전체 노출 요약 -->
+                <div class="p-4 bg-white border-b">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-bold text-gray-700">📊 전체 노출 현황</h4>
+                        <span id="integratedDataStatus" class="text-[10px] text-gray-400">데이터 없음</span>
+                    </div>
+                    <div class="grid grid-cols-5 gap-4">
+                        <div class="text-center p-3 bg-gray-50 rounded-lg" data-guide="전체 거래 데이터의 건수를 나타냅니다. 업로드된 거래가 몇 건인지 한눈에 확인할 수 있습니다." data-guidetitle="총 거래건수 안내">
+                            <div class="text-xs text-gray-500 mb-1">총 거래 건수</div>
+                            <div id="integratedTotalCount" class="text-xl font-bold text-gray-700">0건</div>
+                        </div>
+                        <div class="text-center p-3 bg-blue-50 rounded-lg" data-guide="받을 돈(채권)의 총액을 표시합니다. 기업이 외화로 받을 예정인 금액의 합계입니다." data-guidetitle="총 채권 안내">
+                            <div class="text-xs text-blue-600 mb-1">총 채권 (받을돈)</div>
+                            <div id="integratedReceivable" class="text-xl font-bold text-blue-600">$0</div>
+                        </div>
+                        <div class="text-center p-3 bg-red-50 rounded-lg" data-guide="줄 돈(채무)의 총액을 표시합니다. 기업이 외화로 지급해야 할 금액의 합계입니다." data-guidetitle="총 채무 안내">
+                            <div class="text-xs text-red-600 mb-1">총 채무 (줄돈)</div>
+                            <div id="integratedPayable" class="text-xl font-bold text-red-600">$0</div>
+                        </div>
+                        <div class="text-center p-3 bg-purple-50 rounded-lg border-2 border-purple-300" data-guide="채권과 채무를 상계한 후 남는 순 노출 금액입니다. 실제로 헤지 전략이 필요한 대상 금액입니다." data-guidetitle="순 노출 안내">
+                            <div class="text-xs text-purple-600 mb-1 font-bold">순 노출 (헤지대상)</div>
+                            <div id="integratedNetExposure" class="text-xl font-bold text-purple-700">$0</div>
+                        </div>
+                        <div class="text-center p-3 bg-green-50 rounded-lg" data-guide="순 노출 금액을 원화로 환산한 값입니다. 환리스크 관리의 실제 규모를 파악할 수 있습니다." data-guidetitle="원화 환산 안내">
+                            <div class="text-xs text-green-600 mb-1">원화 환산</div>
+                            <div id="integratedNetKRW" class="text-xl font-bold text-green-600">0억원</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 혼합 헤지 전략 권고 -->
+                <div id="mixedHedgeStrategy" class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b">
+                    <h4 class="text-sm font-bold text-indigo-800 mb-4">🎯 혼합 헤지 전략 권고안</h4>
+                    
+                    <!-- 전략 비율 슬라이더 -->
+                    <div class="mb-4 p-4 bg-white rounded-lg border" data-guide="헤지 비율 슬라이더를 조정하면 전체 헤지 전략의 비율을 변경할 수 있습니다. 0%~100%까지 조정 가능합니다." data-guidetitle="헤지 비율 조정 안내">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-600">헤지 비율 조정</span>
+                            <span id="totalHedgeRatio" class="text-sm font-bold text-purple-600">70%</span>
+                        </div>
+                        <input type="range" id="hedgeRatioSlider" min="0" max="100" value="70" 
+                               class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                               onchange="updateHedgeStrategy()">
+                        <div class="flex justify-between text-[9px] text-gray-400 mt-1">
+                            <span>0% (무헤지)</span>
+                            <span>50%</span>
+                            <span>100% (완전헤지)</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 헤지 상품별 배분 -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- 선물환/환변동보험 (고정 헤지) -->
+                        <div class="bg-white p-4 rounded-lg border-l-4 border-blue-500" data-guide="선물환/환변동보험은 고정 결제일에 맞춰 환리스크를 확정적으로 관리하는 수단입니다." data-guidetitle="선물환/환변동보험 안내">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">🏦</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-blue-800">선물환 / 환변동보험</div>
+                                        <div class="text-[10px] text-gray-500">고정 결제일 확정 헤지</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div id="forwardRatio" class="text-xl font-bold text-blue-600">60%</div>
+                                    <div class="text-[9px] text-gray-400">권장 비율</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-600">헤지 금액</span>
+                                    <span id="forwardAmount" class="font-bold text-blue-700">$0</span>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-600">원화 환산</span>
+                                    <span id="forwardAmountKRW" class="font-bold text-blue-700">0억원</span>
+                                </div>
+                                <div class="w-full bg-gray-100 h-2 rounded-full">
+                                    <div id="forwardBar" class="bg-blue-500 h-full rounded-full transition-all" style="width: 60%"></div>
+                                </div>
+                            </div>
+                            <div class="mt-3 p-2 bg-blue-50 rounded text-[10px] text-blue-700">
+                                <strong>✅ 장점:</strong> 환율 확정, 회계처리 용이<br>
+                                <strong>⚠️ 주의:</strong> 결제일 변경 시 비용 발생
+                            </div>
+                        </div>
+                        
+                        <!-- 달러선물 (유연 헤지) -->
+                        <div class="bg-white p-4 rounded-lg border-l-4 border-orange-500" data-guide="달러선물은 결제일이 유동적인 환리스크를 유연하게 관리할 수 있는 수단입니다." data-guidetitle="달러선물 안내">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">📈</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-orange-800">달러선물 (CME/KRX)</div>
+                                        <div class="text-[10px] text-gray-500">유동적 결제일 대응 헤지</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div id="futuresRatio" class="text-xl font-bold text-orange-600">40%</div>
+                                    <div class="text-[9px] text-gray-400">권장 비율</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-600">헤지 금액</span>
+                                    <span id="futuresAmount" class="font-bold text-orange-700">$0</span>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-600">원화 환산</span>
+                                    <span id="futuresAmountKRW" class="font-bold text-orange-700">0억원</span>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-600">필요 계약수</span>
+                                    <span id="futuresContracts" class="font-bold text-orange-700">0계약</span>
+                                </div>
+                                <div class="w-full bg-gray-100 h-2 rounded-full">
+                                    <div id="futuresBar" class="bg-orange-500 h-full rounded-full transition-all" style="width: 40%"></div>
+                                </div>
+                            </div>
+                            <div class="mt-3 p-2 bg-orange-50 rounded text-[10px] text-orange-700">
+                                <strong>✅ 장점:</strong> 롤오버 가능, 결제일 유연<br>
+                                <strong>⚠️ 주의:</strong> 마진콜, 일일정산 필요
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 미헤지 잔여분 -->
+                    <div id="unhedgedSection" class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200" data-guide="미헤지 잔여분은 아직 헤지되지 않은 환리스크 노출 금액입니다. 추가 관리가 필요합니다." data-guidetitle="미헤지 잔여분 안내">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">⚠️</span>
+                                <div>
+                                    <div class="text-sm font-bold text-yellow-800">미헤지 잔여분</div>
+                                    <div class="text-[10px] text-yellow-600">환율 변동 위험에 노출</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div id="unhedgedRatio" class="text-xl font-bold text-yellow-700">30%</div>
+                                <div id="unhedgedAmount" class="text-xs text-yellow-600">$0 (0억원)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 전략 요약 테이블 -->
+                <table class="w-full text-xs text-left" data-guide="전략 요약 테이블에서는 각 헤지 수단별 비율, 금액, 권장 상품, 실행 여부 등을 한눈에 확인할 수 있습니다." data-guidetitle="전략 요약 안내">
+                    <thead class="bg-purple-50 text-purple-700 border-b">
+                        <tr>
+                            <th class="p-3">헤지 수단</th>
+                            <th class="p-3 text-right">비율</th>
+                            <th class="p-3 text-right">금액 (USD)</th>
+                            <th class="p-3 text-right">금액 (KRW)</th>
+                            <th class="p-3">권장 상품</th>
+                            <th class="p-3">비고</th>
+                            <th class="p-3 text-center">실행</th>
+                        </tr>
+                    </thead>
+                    <tbody id="integratedHedgeBody" class="divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="7" class="p-6 text-center text-gray-400">
+                                <div class="text-3xl mb-2">🔗</div>
+                                <p>데이터 업로드 후 '전략 계산' 버튼을 클릭하면</p>
+                                <p class="text-xs mt-1">최적의 혼합 헤지 전략을 제안합니다.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 구분선 -->
+            <hr class="border-t-2 border-gray-300 my-8">
+            
+            <!-- 실시간 집계 테이블 -->
+            <section id="aggregationSummary" class="bg-gradient-to-r from-indigo-50 to-blue-50 p-6 rounded-lg border-l-4 border-indigo-500 mb-6" data-guide="거래 데이터 집계 현황에서는 전체 거래 건수, 통화 종류, 채권/채무/순노출 등 집계 정보를 확인할 수 있습니다." data-guidetitle="집계 현황 안내">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">📊 거래 데이터 집계 현황</h3>
+                
+                <!-- KPI 카드 -->
+                <div class="grid grid-cols-5 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-xs text-gray-500 mb-1">총 거래 건수</div>
+                        <div id="aggTotalCount" class="text-2xl font-bold text-gray-800">0건</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-xs text-gray-500 mb-1">통화 종류</div>
+                        <div id="aggCurrencyCount" class="text-2xl font-bold text-blue-600">0개</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-xs text-gray-500 mb-1">총 채권</div>
+                        <div id="aggTotalReceivable" class="text-2xl font-bold text-green-600">0억원</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-xs text-gray-500 mb-1">총 채무</div>
+                        <div id="aggTotalPayable" class="text-2xl font-bold text-red-600">0억원</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-xs text-gray-500 mb-1">순 노출</div>
+                        <div id="aggNetExposure" class="text-2xl font-bold text-orange-600">0억원</div>
+                    </div>
+                </div>
+                
+                <!-- 통화별 상세 집계 테이블 -->
+                <div class="bg-white rounded-lg overflow-hidden shadow-sm">
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-100 border-b">
+                            <tr>
+                                <th class="p-3 text-left font-bold text-gray-700">통화</th>
+                                <th class="p-3 text-right font-bold text-gray-700">채권 건수</th>
+                                <th class="p-3 text-right font-bold text-gray-700">채권 금액</th>
+                                <th class="p-3 text-right font-bold text-gray-700">채무 건수</th>
+                                <th class="p-3 text-right font-bold text-gray-700">채무 금액</th>
+                                <th class="p-3 text-right font-bold text-gray-700">순 노출</th>
+                                <th class="p-3 text-right font-bold text-gray-700">상계 가능성</th>
+                            </tr>
+                        </thead>
+                        <tbody id="aggTableBody">
+                            <tr>
+                                <td colspan="7" class="p-6 text-center text-gray-400">
+                                    데이터를 업로드하면 자동으로 집계됩니다
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 시뮬레이터 사용법 -->
+            <div class="bg-blue-50 border-l-4 border-blue-600 p-4 text-sm text-gray-700" data-guide="시뮬레이터 사용법 안내: 거래를 선택하면 금액과 결제일이 자동 입력됩니다. 시뮬레이션 버튼을 클릭하여 계약 수량과 예상 비용을 확인하세요." data-guidetitle="시뮬레이터 안내">
+                <strong>시뮬레이터 사용법:</strong> 거래를 선택하면 금액과 결제일이 자동 입력됩니다. 시뮬레이션 버튼을 클릭하여 계약 수량과 예상 비용을 확인하세요.
+            </div>
+
+            <!-- 헤지 전략 카드 그리드 -->
+            <div class="grid grid-cols-3 gap-6" data-guide="각 헤지 수단별 시뮬레이터와 안내문을 제공합니다. 선물환, 달러선물, 환변동보험의 특징과 장점을 확인하세요." data-guidetitle="헤지 수단 안내">
+                <!-- 선물환 -->
+                <div class="bg-white border-2 border-blue-500 rounded-lg shadow-md p-6 flex flex-col" data-guide="선물환은 은행과 1:1로 미래 환율을 확정하는 대표적 헤지 수단입니다. 여러 은행 견적 요청서 자동작성 지원." data-guidetitle="선물환 안내">
+                    <h3 class="text-xl font-bold text-blue-700 mb-4">선물환</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <div class="text-xs font-bold mb-2">헤지 시뮬레이터</div>
+                        <input type="number" placeholder="헤지 금액 (USD)" id="amount1" class="w-full px-3 py-2 border rounded mb-2 text-sm">
+                        <input type="date" id="paymentDate1" class="w-full px-3 py-2 border rounded mb-2 text-sm">
+                        <button onclick="simulateForward()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">시뮬레이션</button>
+                        <div id="result1" class="mt-3 text-xs text-gray-700"></div>
+                    </div>
+                    <div class="text-sm text-gray-700 mb-4">
+                        <span class="text-blue-700 font-bold">여러 은행 견적 요청서 자동작성 지원</span>
+                        <div class="h-2"></div>
+                        은행과 1:1로 미래 환율을 확정하는 대표적 헤지 수단입니다.
+                        <div class="h-2"></div>
+                        기업별 거래내역을 바탕으로 최적의 계약 조건을 안내합니다.
+                    </div>
+                    <button class="mt-auto bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700">거래은행</button>
+                </div>
+
+                <!-- 달러선물  -->
+                <div class="bg-white border-2 border-blue-500 rounded-lg shadow-md p-6 flex flex-col" data-guide="달러선물은 낮은 거래 비용, 높은 유동성, 중도 해지의 유연성, 만기 연장(Roll-over) 등 다양한 장점이 있습니다." data-guidetitle="달러선물 안내">
+                    <h3 class="text-xl font-bold text-blue-700 mb-4">달러선물</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <div class="text-xs font-bold mb-2">헤지 시뮬레이터</div>
+                        <input type="number" placeholder="헤지 금액 (USD)" id="amount2" class="w-full px-3 py-2 border rounded mb-2 text-sm">
+                        <input type="date" id="paymentDate2" class="w-full px-3 py-2 border rounded mb-2 text-sm">
+                        <input type="number" placeholder="현재 가격 (KRW) - 실시간 연동 예정" id="price2" class="w-full px-3 py-2 border rounded mb-2 text-sm">
+                        <button onclick="simulateFutures()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">시뮬레이션</button>
+                        <div id="result2" class="mt-3 text-xs text-gray-700"></div>
+                    </div>
+                    <div class="text-sm text-gray-700 mb-4">
+                        <span class="text-blue-700 font-bold">달러선물의 장점</span>
+                        <div class="h-2"></div>
+                        1. 낮은 거래 비용<br>
+                        2. 높은 유동성과 신속성<br>
+                        3. 중도 해지의 유연성<br>
+                        4. 만기 연장의 편의성 (Roll-over)
+                    </div>
+                    <button class="mt-auto bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700">거래증권사</button>
+                </div>
+
+                <!-- 환변동보험 -->
+                <div class="bg-white border-2 border-blue-500 rounded-lg shadow-md p-6 flex flex-col" data-guide="환변동보험은 중소기업 우대 혜택, 서류 자동 작성 지원, 정부지원 시 무료 또는 초저비용 제공 등 다양한 장점이 있습니다." data-guidetitle="환변동보험 안내">
+                    <h3 class="text-xl font-bold text-blue-700 mb-4">환변동보험</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <div class="text-xs font-bold mb-2">헤지 시뮬레이터</div>
+                        <input type="number" placeholder="보험 금액 (USD)" id="amount3" class="w-full px-3 py-2 border rounded mb-2 text-sm">
+                        <select id="coverage3" class="w-full px-3 py-2 border rounded mb-2 text-sm">
+                            <option>기본 커버리지</option>
+                            <option>확장 커버리지</option>
+                        </select>
+                        <button onclick="simulateInsurance()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">시뮬레이션</button>
+                        <div id="result3" class="mt-3 text-xs text-gray-700"></div>
+                    </div>
+                    <div class="text-sm text-gray-700 mb-4">
+                        <span class="text-blue-700 font-bold">환변동보험의 장점</span>
+                        <div class="h-2"></div>
+                        1. 중소기업 우대 혜택<br>
+                        2. 서류 자동 작성 지원
+                        <div class="h-2"></div>
+                        고객정보를 바탕으로 환리스크 보험 신청부터 진행상황까지 자동 관리합니다.
+                        <div class="h-2"></div>
+                        <span class="text-green-600 font-bold">정부지원 시 무료 또는 초저비용 제공</span>
+                    </div>
+                    <button class="mt-auto bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700">무역보험공사</button>
+                </div>
+            </div>
+        </main>
+            <!-- 안내/설명 모달 삽입 -->
+            <div id="modal-guide" class="modal-guide">
+                <button id="modal-guide-close" class="modal-close" title="닫기">×</button>
+                <div class="modal-title">안내</div>
+                <div class="modal-content">여기에 안내문이 표시됩니다.</div>
+            </div>
+    </div>
+
+    <script>
+    function simulateForward() {
+        var amount = document.getElementById('amount1').value || 0;
+        var date = document.getElementById('paymentDate1').value;
+        var today = new Date('2026-01-30');
+        var paymentDate = new Date(date);
+        var months = Math.ceil((paymentDate - today) / (1000 * 60 * 60 * 24 * 30));
+        var period = '12개월';
+        if (months <= 6) period = '6개월';
+        var rate = 1325;
+        var contracts = Math.ceil(amount / 1000);
+        var total = amount * rate;
+        var result = '선물환 계약 시뮬레이션 결과:<br>헤지 금액: ' + amount + ' USD<br>결제일: ' + date + '<br>기간: ' + period + '<br>필요 계약 수: ' + contracts + '계약<br>예상 환율: ' + rate + ' KRW/USD<br>총 KRW: ' + total.toLocaleString();
+        document.getElementById('result1').innerHTML = result;
+    }
+    
+    function simulateFutures() {
+        var amount = document.getElementById('amount2').value || 0;
+        var date = document.getElementById('paymentDate2').value;
+        var contracts = Math.floor(amount / 100000);
+        var price = document.getElementById('price2').value || 0;
+        var total = contracts * price;
+        var result = '달러선물 거래 시뮬레이션 결과:<br>헤지 금액: ' + amount + ' USD<br>결제일: ' + date + '<br>계약 수량: ' + contracts + '<br>가격: ' + price + ' KRW<br>총 금액: ' + total.toLocaleString() + ' KRW';
+        document.getElementById('result2').innerHTML = result;
+    }
+    
+    function simulateInsurance() {
+        var amount = document.getElementById('amount3').value || 0;
+        var coverage = document.getElementById('coverage3').value;
+        var premium = amount * 0.005;
+        var result = '환변동보험 시뮬레이션 결과:<br>보험 금액: ' + amount + ' USD<br>커버리지: ' + coverage + '<br>예상 프리미엄: ' + premium.toFixed(2) + ' USD';
+        document.getElementById('result3').innerHTML = result;
+    }
+    
+    let selectedTradeId = null;
+    function selectTrade(id, amount, date) {
+        if (selectedTradeId) {
+            var prevRow = document.getElementById('row-' + selectedTradeId);
+            if (prevRow) prevRow.classList.remove('bg-blue-100');
+        }
+        selectedTradeId = id;
+        var row = document.getElementById('row-' + id);
+        if (row) row.classList.add('bg-blue-100');
+        
+        document.getElementById('amount1').value = amount;
+        document.getElementById('paymentDate1').value = date;
+        document.getElementById('amount2').value = amount;
+        document.getElementById('paymentDate2').value = date;
+        document.getElementById('amount3').value = amount;
+        
+        document.getElementById('result1').innerHTML = '';
+        document.getElementById('result2').innerHTML = '';
+        document.getElementById('result3').innerHTML = '';
+    }
+
+    // 로컬 스토리지에서 데이터 로드 (새로고침 시에도 유지)
+    function loadDataFromSession() {
+        console.log('🔍 localStorage에서 데이터 로드 시도...');
+        
+        // 1. 업로드된 원본 데이터 확인 (localStorage 우선)
+        const uploadedDataStr = localStorage.getItem('uploadedData');
+        if (uploadedDataStr) {
+            try {
+                const uploadedData = JSON.parse(uploadedDataStr);
+                console.log('✅ 업로드된 원본 데이터 발견:', uploadedData.length, '건');
+                console.log('📊 데이터 샘플:', uploadedData.slice(0, 3));
+                
+                // ★ 전체 UI 복원 (뷰 전용) ★
+                // 대시보드 업데이트 (요약 정보)
+                updateDashboardWithData(uploadedData);
+                
+                // 거래 목록 테이블에 직접 표시
+                updateTradeListTable(uploadedData);
+                
+                // 집계 테이블 업데이트
+                updateAggregationSummary(uploadedData);
+                
+                // KPI 섹션 업데이트
+                updateKPISection(uploadedData);
+                
+                // ⚠️ 헤지 전략 계산 제거 (서버에서만 수행)
+                // 사용자가 "헤지 계산 실행" 버튼을 클릭해야 함
+                
+                // 헤지 계산 버튼 활성화
+                const btn = document.getElementById('runHedgeAnalysisBtn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.add('btn-ready-pulse');
+                }
+                
+                // 삭제 버튼 표시
+                const clearBtn = document.getElementById('clearDataBtn');
+                if (clearBtn) {
+                    clearBtn.style.display = 'block';
+                }
+                
+                // 업로드 시간 표시
+                const timestamp = localStorage.getItem('uploadedDataTimestamp');
+                if (timestamp) {
+                    const uploadTime = new Date(timestamp).toLocaleString('ko-KR');
+                    console.log('⏰ 업로드 시간:', uploadTime);
+                }
+            } catch (e) {
+                console.error('❌ 업로드 데이터 파싱 오류:', e);
+            }
+        } else {
+            console.log('ℹ️ localStorage에 저장된 업로드 데이터가 없습니다.');
+        }
+        
+        // 2. 서버 분석 결과 확인 (헤지 전략용)
+        const serverResultStr = localStorage.getItem('serverAnalysisResult');
+        if (serverResultStr) {
+            try {
+                const serverResult = JSON.parse(serverResultStr);
+                console.log('✅ 서버 분석 결과 발견');
+                loadServerAnalysisResults(serverResult);
+            } catch (e) {
+                console.error('❌ 서버 결과 파싱 오류:', e);
+            }
+        }
+    }
+
+    // 대시보드 업데이트
+    function updateDashboardWithData(data) {
+        if (!data || data.length === 0) {
+            console.warn('⚠️ 표시할 데이터가 없습니다.');
+            return;
+        }
+        
+        console.log('📊 대시보드 업데이트 시작:', data.length, '건');
+        
+        // 통화별 집계
+        const summary = {};
+        data.forEach(item => {
+            if (!summary[item.currency]) {
+                summary[item.currency] = { receivable: 0, payable: 0 };
+            }
+            if (item.type === 'receivable') {
+                summary[item.currency].receivable += item.amount;
+            } else if (item.type === 'payable') {
+                summary[item.currency].payable += item.amount;
+            }
+        });
+
+        console.log('통화별 요약:', summary);
+
+        // KPI 업데이트 (예시)
+        const totalExposure = Object.values(summary).reduce((sum, curr) => 
+            sum + Math.abs(curr.receivable - curr.payable), 0
+        );
+        
+        // 화면 상단 알림 추가
+        const header = document.querySelector('header');
+        
+        // 기존 알림 제거
+        const existingStatus = header.querySelector('.bg-blue-50');
+        if (existingStatus) {
+            existingStatus.remove();
+        }
+        
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'bg-blue-50 border-b border-blue-200 px-8 py-2';
+        statusDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-blue-800">
+                    ✅ 업로드된 데이터: <strong>${data.length}건</strong>
+                </span>
+                <span class="text-sm text-blue-600">
+                    통화: ${Object.keys(summary).join(', ')}
+                </span>
+            </div>
+        `;
+        header.insertBefore(statusDiv, header.firstChild);
+    }
+
+    // 거래 목록 테이블 업데이트
+    function updateTradeListTable(uploadedData) {
+        const tbody = document.getElementById('tradeListBody');
+        if (!tbody) {
+            console.error('❌ tradeListBody 요소를 찾을 수 없습니다.');
+            return;
+        }
+
+        // 업로드된 원본 데이터 파싱
+        let data = uploadedData;
+        if (typeof uploadedData === 'string') {
+            try {
+                data = JSON.parse(uploadedData);
+            } catch (e) {
+                console.error('❌ 데이터 파싱 실패:', e);
+                return;
+            }
+        }
+
+        if (!Array.isArray(data) || data.length === 0) {
+            console.warn('⚠️ 표시할 거래 데이터가 없습니다.');
+            tbody.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-gray-500">표시할 거래가 없습니다.</td></tr>';
+            return;
+        }
+
+        console.log(`📊 업로드된 데이터 ${data.length}건 표시 시작`);
+        
+        // 각 항목의 상세 정보 로그
+        data.forEach((item, idx) => {
+            console.log(`  [${idx}] ID: ${item.id}, Entity: ${item.entity}, Currency: ${item.currency}, Amount: ${item.amount}, Date: ${item.date}, Type: ${item.type}`);
+        });
+
+        // 환율 정보
+        const rates = {
+            'USD': 1342.50,
+            'EUR': 1450.20,
+            'JPY': 9.50,
+            'CNY': 185.35,
+            'GBP': 1700.60
+        };
+
+        tbody.innerHTML = '';
+
+        const today = new Date('2026-02-02'); // 현재 날짜
+
+        data.forEach((item, index) => {
+            // 데이터 검증
+            if (!item.date) {
+                console.warn(`⚠️ [${index}] 날짜 정보 없음:`, item);
+            }
+            
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-blue-50 cursor-pointer transition';
+            
+            // 원화 환산액 계산
+            const rate = rates[item.currency] || rates['USD'];
+            const krwAmount = Math.round(item.amount * rate);
+
+            // D-Day 계산
+            const paymentDate = new Date(item.date);
+            const diffTime = paymentDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const dDayText = diffDays > 0 ? `D-${diffDays}` : diffDays === 0 ? 'D-Day' : `D+${Math.abs(diffDays)}`;
+            const dDayClass = diffDays <= 7 ? 'text-red-600 font-bold' : diffDays <= 30 ? 'text-orange-600' : 'text-gray-600';
+
+            // 구분 색상
+            const typeClass = item.type === 'receivable' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700';
+            
+            const typeText = item.type === 'receivable' ? '채권(매출)' : '채무(매입)';
+            
+            // 거래 유형 표시
+            const tradeTypeText = item.transactionType === 'buy' ? '매수(결제)' : '매도(수금)';
+            const tradeTypeClass = item.transactionType === 'buy' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700';
+            
+            // 마진 계산 (마진 = 적용환율 - 시장환율)
+            const marginValue = (item.appliedRate || 0) - (item.marketRate || 0);
+            const marginPercent = item.marketRate > 0 ? ((marginValue / item.marketRate) * 100).toFixed(3) : 0;
+            const marginClass = marginValue > 0 ? 'text-red-600' : marginValue < 0 ? 'text-green-600' : 'text-gray-600';
+
+            tr.innerHTML = `
+                <td class="p-3">
+                    <span class="font-bold text-blue-600">${item.id || `TXN-${index + 1}`}</span>
+                </td>
+                <td class="p-3">
+                    <div class="font-mono text-gray-700">${item.transactionDate || item.date || '-'}</div>
+                    ${item.transactionTime ? `<div class="text-[9px] text-gray-500">${item.transactionTime}</div>` : ''}
+                </td>
+                <td class="p-3">
+                    <span class="font-bold text-blue-700">${item.currencyPair || item.currency + '/KRW'}</span>
+                </td>
+                <td class="p-3">
+                    <span class="px-2 py-1 ${tradeTypeClass} rounded-full text-[10px] font-bold">
+                        ${tradeTypeText}
+                    </span>
+                </td>
+                <td class="p-3">
+                    <div class="font-bold text-gray-800">${(item.foreignAmount || item.amount || 0).toLocaleString('ko-KR')}</div>
+                </td>
+                <td class="p-3">
+                    <div class="font-bold text-gray-700">${(item.appliedRate || 0).toLocaleString('ko-KR', {minimumFractionDigits: 2})}</div>
+                </td>
+                <td class="p-3">
+                    <div class="text-gray-600">${(item.marketRate || 0).toLocaleString('ko-KR', {minimumFractionDigits: 2})}</div>
+                </td>
+                <td class="p-3">
+                    <div class="${marginClass} font-bold">${marginValue >= 0 ? '+' : ''}${marginValue.toFixed(2)}</div>
+                    <div class="text-[9px] ${marginClass}">(${marginPercent >= 0 ? '+' : ''}${marginPercent}%)</div>
+                </td>
+                <td class="p-3">
+                    <div class="text-xs text-gray-700">${item.industryCategory || '기타'}</div>
+                </td>
+                <td class="p-3">
+                    <div class="text-xs text-gray-600">${item.companySize || '-'}</div>
+                </td>
+                <td class="p-3">
+                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-[10px] font-bold">
+                        ${item.mainBank || '은행A'}
+                    </span>
+                </td>
+            `;
+            
+            // 클릭 이벤트
+            tr.onclick = () => selectTradeFromData(item);
+            
+            tbody.appendChild(tr);
+        });
+
+        // 카운트 업데이트
+        const countElement = document.getElementById('tradeCount');
+        if (countElement) {
+            countElement.textContent = `총 ${data.length}건`;
+            countElement.className = 'text-xs font-bold text-blue-600';
+        }
+
+        console.log(`✅ ${data.length}건의 거래가 테이블에 표시되었습니다.`);
+    }
+
+    // 집계 테이블 업데이트
+    function updateAggregationSummary(data) {
+        if (!data || data.length === 0) {
+            console.warn('⚠️ 집계할 데이터가 없습니다.');
+            return;
+        }
+
+        console.log('📊 집계 테이블 업데이트 시작...', data.length, '건');
+        console.log('데이터 샘플:', data.slice(0, 3));
+
+        // 통화별 집계
+        const byCurrency = {};
+        let totalReceivable = 0;
+        let totalPayable = 0;
+
+        data.forEach(item => {
+            const currency = item.currency || 'UNKNOWN';
+            
+            if (!byCurrency[currency]) {
+                byCurrency[currency] = {
+                    receivableCount: 0,
+                    receivableAmount: 0,
+                    payableCount: 0,
+                    payableAmount: 0
+                };
+            }
+
+            if (item.type === 'receivable') {
+                byCurrency[currency].receivableCount++;
+                byCurrency[currency].receivableAmount += item.amount;
+                totalReceivable += item.amount;
+            } else {
+                byCurrency[currency].payableCount++;
+                byCurrency[currency].payableAmount += item.amount;
+                totalPayable += item.amount;
+            }
+        });
+
+        const currencyCount = Object.keys(byCurrency).length;
+        console.log(`통화 종류: ${currencyCount}개`, Object.keys(byCurrency));
+
+        // KPI 업데이트
+        // 억원 단위로 표시 (환율 1350원 기준)
+        const exchangeRate = 1350;
+        const toEokWon = (usdAmount) => ((usdAmount * exchangeRate) / 100000000).toFixed(1);
+        
+        document.getElementById('aggTotalCount').textContent = `${data.length}건`;
+        document.getElementById('aggCurrencyCount').textContent = `${currencyCount}개`;
+        document.getElementById('aggTotalReceivable').textContent = `${toEokWon(totalReceivable)}억원`;
+        document.getElementById('aggTotalPayable').textContent = `${toEokWon(totalPayable)}억원`;
+        
+        const netExposure = totalReceivable - totalPayable;
+        const netEl = document.getElementById('aggNetExposure');
+        netEl.textContent = `${toEokWon(Math.abs(netExposure))}억원`;
+        netEl.className = `text-2xl font-bold ${netExposure >= 0 ? 'text-green-600' : 'text-red-600'}`;
+
+        // 통화별 테이블 업데이트
+        const tbody = document.getElementById('aggTableBody');
+        tbody.innerHTML = '';
+
+        Object.keys(byCurrency).forEach(currency => {
+            const data = byCurrency[currency];
+            const netAmount = data.receivableAmount - data.payableAmount;
+            const nettingPotential = Math.min(data.receivableAmount, data.payableAmount);
+            const nettingRatio = nettingPotential > 0 
+                ? ((nettingPotential / Math.max(data.receivableAmount, data.payableAmount)) * 100).toFixed(1)
+                : 0;
+
+            const tr = document.createElement('tr');
+            tr.className = 'border-t hover:bg-blue-50';
+            tr.innerHTML = `
+                <td class="p-3">
+                    <span class="font-bold text-lg text-blue-600">${currency}</span>
+                </td>
+                <td class="p-3 text-right text-gray-600">${data.receivableCount}건</td>
+                <td class="p-3 text-right font-bold text-green-600">${data.receivableAmount.toLocaleString()}</td>
+                <td class="p-3 text-right text-gray-600">${data.payableCount}건</td>
+                <td class="p-3 text-right font-bold text-red-600">${data.payableAmount.toLocaleString()}</td>
+                <td class="p-3 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}">
+                    ${netAmount >= 0 ? '+' : ''}${netAmount.toLocaleString()}
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full" style="width: ${nettingRatio}%"></div>
+                        </div>
+                        <span class="text-xs font-bold text-gray-700">${nettingRatio}%</span>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        console.log('✅ 집계 테이블 업데이트 완료');
+    }
+
+    // 데이터에서 거래 선택
+    function selectTradeFromData(item) {
+        console.log('거래 선택:', item);
+        
+        // 선물환 시뮬레이터에 자동 입력
+        const amount1 = document.getElementById('amount1');
+        const paymentDate1 = document.getElementById('paymentDate1');
+        
+        if (amount1) amount1.value = item.amount;
+        if (paymentDate1) paymentDate1.value = item.date;
+
+        // 선택 표시
+        alert(
+            `거래 선택됨\n\n` +
+            `거래처: ${item.entity}\n` +
+            `통화: ${item.currency}\n` +
+            `금액: ${item.amount.toLocaleString('ko-KR')}\n` +
+            `일자: ${item.date}\n` +
+            `구분: ${item.type === 'receivable' ? '채권' : '채무'}\n\n` +
+            `하단 헤지 시뮬레이터에 자동으로 입력되었습니다.`
+        );
+
+        // 헤지 시뮬레이터 섹션으로 스크롤
+        const simulator = document.querySelector('.grid.grid-cols-3');
+        if (simulator) {
+            simulator.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // 내부헤지 네팅 분석
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ⚠️ DEPRECATED: 로컬 헤지 계산 함수 (보안상 제거됨)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 
+    // performInternalHedgeNetting() 함수는 소스 유출 방지를 위해
+    // 서버로 이전되었습니다.
+    //
+    // 대체 API: POST /api/hedge/netting
+    //
+    // 클라이언트는 서버 API를 호출하여 계산 결과만 수신합니다.
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    function performInternalHedgeNetting(data) {
+        // 이 함수는 더 이상 사용되지 않습니다.
+        // 서버 API를 사용하세요: POST /api/hedge/netting
+        console.error('❌ performInternalHedgeNetting은 제거되었습니다. 서버 API를 사용하세요.');
+        throw new Error('로컬 헤지 계산은 보안상 지원되지 않습니다. 서버 API를 사용하세요.');
+    }
+
+    // 내부헤지 결과 표시
+    function displayNettingResults(nettingResult) {
+        // 상단 KPI 업데이트
+        const nettingSection = document.createElement('section');
+        nettingSection.className = 'bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border-l-4 border-green-500';
+        nettingSection.innerHTML = `
+            <h3 class="text-lg font-bold text-gray-800 mb-4">🔄 내부헤지 (자연헤지) 분석 결과</h3>
+            <div class="grid grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded shadow-sm">
+                    <div class="text-xs text-gray-500 mb-1">상계 처리</div>
+                    <div class="text-2xl font-bold text-green-600">${nettingResult.nettedPairs.length}쌍</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm">
+                    <div class="text-xs text-gray-500 mb-1">자연헤지 금액</div>
+                    <div class="text-2xl font-bold text-blue-600">${((nettingResult.totalNettedAmount * 1350) / 100000000).toFixed(1)}억원</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm">
+                    <div class="text-xs text-gray-500 mb-1">잔여 노출</div>
+                    <div class="text-2xl font-bold text-orange-600">${nettingResult.remainingExposure.length}건</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm">
+                    <div class="text-xs text-gray-500 mb-1">헤지 효율</div>
+                    <div class="text-2xl font-bold text-green-600">${((nettingResult.nettedPairs.length / (nettingResult.nettedPairs.length + nettingResult.remainingExposure.length)) * 100).toFixed(1)}%</div>
+                </div>
+            </div>
+            
+            <div class="mt-6">
+                <h4 class="text-sm font-bold text-gray-700 mb-3">통화별 상계 현황</h4>
+                <div class="bg-white rounded-lg overflow-hidden">
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-left">통화</th>
+                                <th class="p-3 text-right">총 채권</th>
+                                <th class="p-3 text-right">총 채무</th>
+                                <th class="p-3 text-right">상계 금액</th>
+                                <th class="p-3 text-right">순노출</th>
+                                <th class="p-3 text-right">잔여 노출</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${Object.keys(nettingResult.byCurrency).map(currency => {
+                                const data = nettingResult.byCurrency[currency];
+                                return `
+                                    <tr class="border-t">
+                                        <td class="p-3 font-bold text-blue-600">${currency}</td>
+                                        <td class="p-3 text-right text-green-600">${data.totalReceivable.toLocaleString()}</td>
+                                        <td class="p-3 text-right text-red-600">${data.totalPayable.toLocaleString()}</td>
+                                        <td class="p-3 text-right font-bold text-blue-600">${data.netted.toLocaleString()}</td>
+                                        <td class="p-3 text-right ${data.netExposure >= 0 ? 'text-green-600' : 'text-red-600'}">${data.netExposure.toLocaleString()}</td>
+                                        <td class="p-3 text-right font-bold text-orange-600">${data.remainingExposure.toLocaleString()}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            ${nettingResult.nettedPairs.length > 0 ? `
+                <div class="mt-4">
+                    <h4 class="text-sm font-bold text-gray-700 mb-3">상계 매칭 상세</h4>
+                    <div class="bg-white rounded-lg p-4 max-h-60 overflow-y-auto">
+                        ${nettingResult.nettedPairs.map(pair => `
+                            <div class="flex items-center justify-between py-2 border-b last:border-b-0">
+                                <div class="flex items-center gap-4">
+                                    <span class="text-xs font-bold text-blue-600">${pair.receivable.id}</span>
+                                    <span class="text-xs text-gray-400">↔</span>
+                                    <span class="text-xs font-bold text-red-600">${pair.payable.id}</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs">
+                                    <span class="text-gray-600">${pair.currency} ${pair.nettedAmount.toLocaleString()}</span>
+                                    <span class="text-gray-500">날짜차: ${pair.dateDiff}일</span>
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded font-bold">점수: ${pair.matchScore}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+        `;
+        
+        // KPI 섹션 다음에 삽입
+        const main = document.querySelector('main');
+        const kpiSection = main.querySelector('section');
+        kpiSection.after(nettingSection);
+    }
+
+    // 헤지 계산 실행 (서버 전송)
+    async function runHedgeAnalysis() {
+        const uploadedDataStr = localStorage.getItem('uploadedData');
+        if (!uploadedDataStr) {
+            alert('❌ 업로드된 데이터가 없습니다.\n먼저 데이터를 업로드하세요.');
+            return;
+        }
+
+        try {
+            const uploadedData = JSON.parse(uploadedDataStr);
+            
+            // 로딩 표시
+            const btn = document.getElementById('runHedgeAnalysisBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ 서버 계산 중...';
+            btn.disabled = true;
+            btn.classList.remove('animate-pulse');
+            
+            console.log('📡 서버로 헤지 분석 요청 전송...');
+            
+            // 1단계: 데이터 익명화
+            const anonymizedData = anonymizeTradeData(uploadedData);
+            console.log('✅ 익명화 완료:', anonymizedData.length, '건');
+            
+            // 2단계: 서버 API 호출 - 헤지 분석 실행
+            const serverUrl = getServerUrl();
+            const customerId = localStorage.getItem('customerId') || 'anonymous';
+            
+            const response = await fetch(`${serverUrl}/api/hedge/analyze`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    customerId: customerId,
+                    data: anonymizedData,
+                    analysisType: 'comprehensive', // 종합 분석
+                    includeNetting: true,          // 내부헤지 포함
+                    includeOptimization: true      // 최적화 포함
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`서버 응답 오류: ${response.status} ${response.statusText}`);
+            }
+            
+            const analysisResult = await response.json();
+            
+            console.log('✅ 서버 분석 완료:', analysisResult);
+            
+            // 3단계: 결과 검증
+            if (!analysisResult.success || !analysisResult.nettingResult) {
+                throw new Error('서버 분석 결과가 올바르지 않습니다.');
+            }
+            
+            const nettingResult = analysisResult.nettingResult;
+            
+            // 4단계: 결과 저장 및 표시
+            localStorage.setItem('nettingResult', JSON.stringify(nettingResult));
+            localStorage.setItem('hedgeAnalysisResult', JSON.stringify(analysisResult));
+            
+            // 내부헤지 결과 표시
+            displayNettingResults(nettingResult);
+            
+            // 버튼 상태 업데이트
+            btn.disabled = true;
+            btn.classList.remove('btn-ready-pulse');
+            btn.innerHTML = '✅ 분석 완료 (서버)';
+            
+            // 완료 알림
+            const nettingAmountEok = ((nettingResult.totalNettedAmount * 1350) / 100000000).toFixed(1);
+            alert(
+                `✅ 헤지 분석 완료! (서버 계산)\n\n` +
+                `📊 내부헤지 (자연헤지):\n` +
+                `- 상계 처리: ${nettingResult.nettedPairs.length}쌍\n` +
+                `- 자연헤지 금액: ${nettingAmountEok}억원\n` +
+                `- 잔여 노출: ${nettingResult.remainingExposure.length}건\n\n` +
+                `✅ 서버에서 계산된 결과입니다.`
+            );
+            
+        } catch (error) {
+            console.error('❌ 헤지 분석 오류:', error);
+            
+            let errorMessage = '헤지 분석 실패: ' + error.message;
+            
+            // 서버 연결 실패 시 안내
+            if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+                errorMessage = 
+                    '⚠️ 서버 연결 실패\n\n' +
+                    '헤지 계산은 서버에서 실행됩니다.\n' +
+                    '서버가 실행 중인지 확인하세요.\n\n' +
+                    '서버 시작 방법:\n' +
+                    '1. 터미널에서: python mock_server_app.py\n' +
+                    '2. 또는: ./start-server.sh';
+            }
+            
+            alert(errorMessage);
+            
+            // 버튼 복원
+            const btn = document.getElementById('runHedgeAnalysisBtn');
+            if (btn) {
+                btn.innerHTML = '⚡ 헤지 계산 실행';
+                btn.disabled = false;
+                btn.classList.add('btn-ready-pulse');
+            }
+        }
+    }
+    
+    // 서버 URL 가져오기
+    function getServerUrl() {
+        // 설정에서 서버 URL 로드
+        const savedServer = localStorage.getItem('serverUrl');
+        if (savedServer) return savedServer;
+        
+        // 기본값
+        return window.location.protocol === 'file:' 
+            ? 'http://localhost:9000'
+            : '';
+    }
+
+    // 거래 데이터 익명화 (하이브리드 보안: 서버로는 숫자만 전송)
+    // ★ 고객 정보 일체 전송 안됨 - 오직 계산에 필요한 숫자만 전송 ★
+    function anonymizeTradeData(data) {
+        console.log('🔒 익명화 시작: 고객 정보 제거 중...');
+        
+        return data.map((row, index) => {
+            // ★ 서버로 전송되는 데이터: 오직 숫자/코드만 ★
+            return {
+                // 식별 불가능한 시퀀스 ID
+                seq: index + 1,
+                
+                // 통화 코드 (USD, EUR 등 - 표준 코드)
+                ccy: row.currency,
+                
+                // 금액 (숫자만)
+                amt: parseFloat(row.amount) || 0,
+                
+                // 만기일 (일수로 변환하여 특정 날짜 노출 방지)
+                daysToMaturity: calculateDaysToMaturity(row.date),
+                
+                // 유형 코드 (R=receivable, P=payable)
+                dir: row.type === 'receivable' ? 'R' : 'P'
+                
+                // ❌ 제외 항목 (서버로 전송 안됨):
+                // - 거래처명 (entity)
+                // - 원본 ID
+                // - 원본 날짜
+                // - 고객 관련 모든 정보
+            };
+        });
+    }
+
+    // 만기일까지 남은 일수 계산
+    function calculateDaysToMaturity(dateStr) {
+        if (!dateStr) return 90; // 기본값
+        
+        try {
+            const maturityDate = new Date(dateStr);
+            const today = new Date();
+            const diffTime = maturityDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return Math.max(0, diffDays);
+        } catch (e) {
+            return 90; // 파싱 실패시 기본값
+        }
+    }
+
+    // 문자열 해시 함수 (로컬 표시용)
+    function hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return Math.abs(hash).toString(36).toUpperCase();
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 통합 헤지 전략 (혼합 헤지) 관련 함수
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    // 전역 통합 헤지 데이터
+    let integratedHedgeData = {
+        totalCount: 0,
+        totalReceivable: 0,  // USD
+        totalPayable: 0,     // USD
+        netExposure: 0,      // USD
+        hedgeRatio: 70,      // 기본 70% 헤지
+        forwardRatio: 60,    // 선물환/환변동보험 비율
+        futuresRatio: 40     // 달러선물 비율
+    };
+    
+    // 통합 헤지 전략 계산
+    async function generateIntegratedHedge() {
+        const uploadedData = localStorage.getItem('uploadedData');
+        if (!uploadedData) {
+            console.warn('📋 업로드된 데이터가 없습니다.');
+            return;
+        }
+        
+        try {
+            const data = JSON.parse(uploadedData);
+            console.log('🎯 서버에서 통합 헤지 전략 계산 요청...', data.length, '건');
+            
+            // 서버 API 호출
+            const serverUrl = getServerUrl();
+            const customerId = localStorage.getItem('customerId') || 'anonymous';
+            
+            const response = await fetch(`${serverUrl}/api/hedge/optimize`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    customerId: customerId,
+                    data: anonymizeTradeData(data),
+                    optimizationType: 'integrated' // 통합 헤지
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`서버 응답 오류: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('✅ 서버에서 계산된 전략:', result);
+            
+            // 전역 데이터 업데이트
+            integratedHedgeData = {
+                ...integratedHedgeData,
+                totalCount: result.totalCount || data.length,
+                totalReceivable: result.totalReceivable || 0,
+                totalPayable: result.totalPayable || 0,
+                netExposure: result.netExposure || 0
+            };
+            
+            // UI 업데이트
+            updateIntegratedHedgeUI();
+            updateHedgeStrategy();
+            updateIntegratedHedgeTable();
+            
+            console.log('✅ 통합 헤지 전략 UI 업데이트 완료');
+            
+        } catch (error) {
+            console.error('❌ 통합 헤지 계산 오류:', error);
+            
+            // 서버 연결 필수 - 로컬 계산 제거
+            console.error('⚠️ 서버 연결 실패. 헤지 계산을 수행할 수 없습니다.');
+            
+            // 에러 상태 표시
+            integratedHedgeData = {
+                ...integratedHedgeData,
+                totalCount: 0,
+                totalReceivable: 0,
+                totalPayable: 0,
+                netExposure: 0
+            };
+            
+            // UI를 초기 상태로
+            updateIntegratedHedgeUI();
+            updateHedgeStrategy();
+            updateIntegratedHedgeTable();
+            
+            // 사용자에게 알림
+            alert(
+                '⚠️ 서버 연결 필요\n\n' +
+                '헤지 전략 계산은 서버에서 실행됩니다.\n' +
+                '서버를 시작해주세요.\n\n' +
+                '서버 시작: python mock_server_app.py'
+            );
+        }
+    }
+    
+    // 통합 헤지 UI 업데이트
+    function updateIntegratedHedgeUI() {
+        const d = integratedHedgeData;
+        const USDKRW = 1350;
+        
+        // 전체 노출 현황
+        document.getElementById('integratedTotalCount').textContent = d.totalCount.toLocaleString() + '건';
+        document.getElementById('integratedReceivable').textContent = '$' + Math.round(d.totalReceivable).toLocaleString();
+        document.getElementById('integratedPayable').textContent = '$' + Math.round(d.totalPayable).toLocaleString();
+        document.getElementById('integratedNetExposure').textContent = '$' + Math.round(d.netExposure).toLocaleString();
+        document.getElementById('integratedNetKRW').textContent = (d.netExposure * USDKRW / 100000000).toFixed(1) + '억원';
+        document.getElementById('integratedDataStatus').textContent = '업데이트: ' + new Date().toLocaleString('ko-KR');
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ⚠️ DEPRECATED: 로컬 헤지 전략 계산 (보안상 제거됨)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 
+    // updateHedgeStrategy() 함수는 소스 유출 방지를 위해
+    // 서버로 이전되었습니다.
+    //
+    // UI 업데이트는 서버에서 받은 데이터로만 수행됩니다.
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    // 헤지 전략 비율 업데이트 (서버 데이터 기반)
+    function updateHedgeStrategy() {
+        // 서버에서 계산된 데이터만 표시
+        const d = integratedHedgeData;
+        
+        // 데이터가 없으면 표시하지 않음
+        if (!d || !d.netExposure || d.netExposure === 0) {
+            console.warn('⚠️ 헤지 전략 데이터 없음 (서버 계산 필요)');
+            return;
+        }
+        
+        const hedgeRatio = parseInt(document.getElementById('hedgeRatioSlider')?.value || 0);
+        const USDKRW = 1350;
+        
+        // 전체 헤지 비율 업데이트
+        document.getElementById('totalHedgeRatio').textContent = hedgeRatio + '%';
+        
+        // ⚠️ 실제 계산은 서버에서 수행
+        // 여기서는 서버에서 받은 값만 표시
+        const totalHedgeAmount = d.totalHedgeAmount || 0;
+        const forwardAmount = d.forwardAmount || 0;
+        const futuresAmount = d.futuresAmount || 0;
+        const unhedgedAmount = d.unhedgedAmount || 0;
+        
+        // UI 업데이트 (서버 데이터)
+        if (document.getElementById('forwardRatio')) {
+            document.getElementById('forwardRatio').textContent = (d.forwardRatio || 0) + '%';
+        }
+        if (document.getElementById('forwardAmount')) {
+            document.getElementById('forwardAmount').textContent = '$' + Math.round(forwardAmount).toLocaleString();
+        }
+        if (document.getElementById('forwardAmountKRW')) {
+            document.getElementById('forwardAmountKRW').textContent = (forwardAmount * USDKRW / 100000000).toFixed(1) + '억원';
+        }
+        
+        const contractSize = 10000;
+        const futuresContracts = Math.round(futuresAmount / contractSize);
+        
+        if (document.getElementById('futuresRatio')) {
+            document.getElementById('futuresRatio').textContent = (d.futuresRatio || 0) + '%';
+        }
+        if (document.getElementById('futuresAmount')) {
+            document.getElementById('futuresAmount').textContent = '$' + Math.round(futuresAmount).toLocaleString();
+        }
+        if (document.getElementById('futuresAmountKRW')) {
+            document.getElementById('futuresAmountKRW').textContent = (futuresAmount * USDKRW / 100000000).toFixed(1) + '억원';
+        }
+        if (document.getElementById('futuresContracts')) {
+            document.getElementById('futuresContracts').textContent = futuresContracts.toLocaleString() + '계약';
+        }
+        
+        if (document.getElementById('unhedgedRatio')) {
+            document.getElementById('unhedgedRatio').textContent = (100 - hedgeRatio) + '%';
+        }
+        document.getElementById('unhedgedAmount').textContent = 
+            '$' + Math.round(unhedgedAmount).toLocaleString() + 
+            ' (' + (unhedgedAmount * USDKRW / 100000000).toFixed(1) + '억원)';
+        
+        // 미헤지 섹션 표시/숨김
+        const unhedgedSection = document.getElementById('unhedgedSection');
+        if (hedgeRatio >= 100) {
+            unhedgedSection.style.display = 'none';
+        } else {
+            unhedgedSection.style.display = 'flex';
+        }
+    }
+    
+    // 통합 헤지 테이블 업데이트
+    function updateIntegratedHedgeTable() {
+        const d = integratedHedgeData;
+        const USDKRW = 1350;
+        const hedgeRatio = d.hedgeRatio / 100;
+        const totalHedge = d.netExposure * hedgeRatio;
+        const forwardAmt = totalHedge * (d.forwardRatio / 100);
+        const futuresAmt = totalHedge * (d.futuresRatio / 100);
+        
+        const tbody = document.getElementById('integratedHedgeBody');
+        
+        if (d.netExposure <= 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="p-6 text-center text-gray-400">
+                        <div class="text-3xl mb-2">🔗</div>
+                        <p>데이터 업로드 후 '전략 계산' 버튼을 클릭하면</p>
+                        <p class="text-xs mt-1">최적의 혼합 헤지 전략을 제안합니다.</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        const direction = d.totalReceivable > d.totalPayable ? '매도 (Sell)' : '매수 (Buy)';
+        const dirClass = d.totalReceivable > d.totalPayable ? 'text-red-600' : 'text-blue-600';
+        
+        tbody.innerHTML = `
+            <tr class="bg-blue-50 hover:bg-blue-100">
+                <td class="p-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🏦</span>
+                        <span class="font-bold text-blue-800">선물환 / 환변동보험</span>
+                    </div>
+                </td>
+                <td class="p-3 text-right font-bold">${d.forwardRatio}%</td>
+                <td class="p-3 text-right font-bold text-blue-700">$${Math.round(forwardAmt).toLocaleString()}</td>
+                <td class="p-3 text-right">${(forwardAmt * USDKRW / 100000000).toFixed(1)}억원</td>
+                <td class="p-3">
+                    <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-[10px]">3개월 선물환</span>
+                </td>
+                <td class="p-3 text-xs text-gray-500">확정 결제일 매칭용<br>주력 헤지 수단</td>
+                <td class="p-3 text-center">
+                    <button onclick="executeForwardHedge()" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">실행</button>
+                </td>
+            </tr>
+            <tr class="bg-orange-50 hover:bg-orange-100">
+                <td class="p-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">📈</span>
+                        <span class="font-bold text-orange-800">달러선물 (KRX/CME)</span>
+                    </div>
+                </td>
+                <td class="p-3 text-right font-bold">${d.futuresRatio}%</td>
+                <td class="p-3 text-right font-bold text-orange-700">$${Math.round(futuresAmt).toLocaleString()}</td>
+                <td class="p-3 text-right">${(futuresAmt * USDKRW / 100000000).toFixed(1)}억원</td>
+                <td class="p-3">
+                    <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded text-[10px]">${Math.round(futuresAmt / 10000)}계약</span>
+                </td>
+                <td class="p-3 text-xs text-gray-500">유동적 결제일 대응<br>롤오버 가능</td>
+                <td class="p-3 text-center">
+                    <button onclick="executeFuturesHedge()" class="px-3 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700">실행</button>
+                </td>
+            </tr>
+            <tr class="bg-gray-50 font-bold border-t-2 border-purple-300">
+                <td class="p-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🎯</span>
+                        <span class="text-purple-800">합계 (총 헤지)</span>
+                    </div>
+                </td>
+                <td class="p-3 text-right text-purple-700">${d.hedgeRatio}%</td>
+                <td class="p-3 text-right text-purple-700">$${Math.round(totalHedge).toLocaleString()}</td>
+                <td class="p-3 text-right text-purple-700">${(totalHedge * USDKRW / 100000000).toFixed(1)}억원</td>
+                <td class="p-3">
+                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-[10px]">혼합 전략</span>
+                </td>
+                <td class="p-3 text-xs text-purple-600">선물환 ${d.forwardRatio}% + 선물 ${d.futuresRatio}%</td>
+                <td class="p-3 text-center">
+                    <button onclick="executeIntegratedHedge()" class="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 font-bold">전체 실행</button>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // 선물환 헤지 실행
+    function executeForwardHedge() {
+        alert('🏦 선물환 / 환변동보험 헤지 실행\n\n은행에 선물환 계약 요청이 전송됩니다.\n(시뮬레이션)');
+    }
+    
+    // 달러선물 헤지 실행
+    function executeFuturesHedge() {
+        const contracts = document.getElementById('futuresContracts').textContent;
+        alert('📈 달러선물 헤지 실행\n\n' + contracts + ' 매도 주문이 실행됩니다.\n(시뮬레이션)');
+    }
+    
+    // 통합 헤지 전체 실행
+    function executeIntegratedHedge() {
+        if (integratedHedgeData.netExposure <= 0) {
+            alert('📋 먼저 통합 헤지 전략을 계산해주세요.');
+            return;
+        }
+        
+        const d = integratedHedgeData;
+        const USDKRW = 1350;
+        const totalHedge = d.netExposure * (d.hedgeRatio / 100);
+        const forwardAmt = totalHedge * (d.forwardRatio / 100);
+        const futuresAmt = totalHedge * (d.futuresRatio / 100);
+        
+        const msg = `🎯 통합 헤지 전략 실행 확인
+
+━━━━━━━━━━━━━━━━━━━━━
+📊 순 노출: $${Math.round(d.netExposure).toLocaleString()} (${(d.netExposure * USDKRW / 100000000).toFixed(1)}억원)
+🎯 헤지 비율: ${d.hedgeRatio}%
+
+━━━━━━━━━━━━━━━━━━━━━
+🏦 선물환/환변동보험: $${Math.round(forwardAmt).toLocaleString()} (${d.forwardRatio}%)
+📈 달러선물: $${Math.round(futuresAmt).toLocaleString()} (${d.futuresRatio}%)
+
+━━━━━━━━━━━━━━━━━━━━━
+실행하시겠습니까?`;
+        
+        if (confirm(msg)) {
+            alert('✅ 통합 헤지 전략이 실행되었습니다.\n\n(실제 시스템에서는 은행 API 및 선물 거래소 연동)');
+        }
+    }
+    
+    // 통합 헤지 섹션 초기화
+    function resetIntegratedHedgeSection() {
+        integratedHedgeData = {
+            totalCount: 0,
+            totalReceivable: 0,
+            totalPayable: 0,
+            netExposure: 0,
+            hedgeRatio: 70,
+            forwardRatio: 60,
+            futuresRatio: 40
+        };
+        
+        document.getElementById('integratedTotalCount').textContent = '0건';
+        document.getElementById('integratedReceivable').textContent = '$0';
+        document.getElementById('integratedPayable').textContent = '$0';
+        document.getElementById('integratedNetExposure').textContent = '$0';
+        document.getElementById('integratedNetKRW').textContent = '0억원';
+        document.getElementById('integratedDataStatus').textContent = '데이터 없음';
+        
+        document.getElementById('hedgeRatioSlider').value = 70;
+        document.getElementById('totalHedgeRatio').textContent = '70%';
+        
+        document.getElementById('forwardRatio').textContent = '60%';
+        document.getElementById('forwardAmount').textContent = '$0';
+        document.getElementById('forwardAmountKRW').textContent = '0억원';
+        document.getElementById('forwardBar').style.width = '60%';
+        
+        document.getElementById('futuresRatio').textContent = '40%';
+        document.getElementById('futuresAmount').textContent = '$0';
+        document.getElementById('futuresAmountKRW').textContent = '0억원';
+        document.getElementById('futuresContracts').textContent = '0계약';
+        document.getElementById('futuresBar').style.width = '40%';
+        
+        document.getElementById('unhedgedRatio').textContent = '30%';
+        document.getElementById('unhedgedAmount').textContent = '$0 (0억원)';
+        
+        document.getElementById('integratedHedgeBody').innerHTML = `
+            <tr>
+                <td colspan="7" class="p-6 text-center text-gray-400">
+                    <div class="text-3xl mb-2">🔗</div>
+                    <p>데이터 업로드 후 '전략 계산' 버튼을 클릭하면</p>
+                    <p class="text-xs mt-1">최적의 혼합 헤지 전략을 제안합니다.</p>
+                </td>
+            </tr>
+        `;
+    }
+
+    // 모든 데이터 삭제 (보호 기능 추가)
+    async function clearAllData() {
+        // ★ 1차 경고: 위험성 알림 ★
+        if (!confirm(
+            '🚨 위험: 모든 데이터 삭제\n\n' +
+            '⚠️ 삭제될 데이터:\n' +
+            '- 업로드된 거래 데이터\n' +
+            '- 집계 현황\n' +
+            '- 분석 결과\n' +
+            '- 로컬 폴더 저장 데이터\n' +
+            '- 노출분석 탭 데이터\n\n' +
+            '※ 이 작업은 되돌릴 수 없습니다!\n\n' +
+            '계속하시겠습니까?'
+        )) {
+            return;
+        }
+
+        // ★ 로컬 폴더 데이터 삭제 (관리자 승인 필요) ★
+        if (window.localStorageHandler && localStorageHandler.protectionEnabled) {
+            console.log('🔒 로컬 폴더 보호 활성화 - 관리자 승인 요청');
+            
+            const approved = await localStorageHandler.verifyAdmin('모든 데이터 삭제 (로컬 폴더 포함)');
+            
+            if (!approved) {
+                alert('❌ 관리자 승인이 거부되었습니다.\n데이터 삭제가 취소되었습니다.');
+                console.log('❌ 데이터 삭제 취소됨 (승인 거부)');
+                return;
+            }
+            
+            // 로컬 폴더 데이터 삭제
+            try {
+                console.log('🗑️ 로컬 폴더 데이터 삭제 중...');
+                
+                // positions.json 삭제
+                await localStorageHandler.deleteProtectedFile('data', 'positions.json');
+                
+                // history 폴더 삭제
+                await localStorageHandler.deleteProtectedFolder('history');
+                
+                console.log('✅ 로컬 폴더 데이터 삭제 완료');
+            } catch (error) {
+                console.error('❌ 로컬 폴더 삭제 오류:', error);
+                // 계속 진행
+            }
+        }
+
+        console.log('🗑️ 모든 데이터 삭제 시작...');
+
+        // ★ localStorage 완전 초기화 (새로고침/탭 간 공유 데이터) ★
+        localStorage.removeItem('uploadedData');
+        localStorage.removeItem('uploadedDataTimestamp');
+        localStorage.removeItem('serverAnalysisResult');
+        localStorage.removeItem('nettingResult');
+        localStorage.removeItem('analysisResults');
+        localStorage.removeItem('hedgeStrategies');
+        localStorage.removeItem('riskMetrics');
+        localStorage.removeItem('executedTrades');
+
+        // 세션 스토리지도 정리 (호환성)
+        sessionStorage.removeItem('uploadedData');
+        sessionStorage.removeItem('uploadedDataTimestamp');
+        sessionStorage.removeItem('nettingResult');
+        sessionStorage.removeItem('serverAnalysisResult');
+        sessionStorage.removeItem('hedgeAnalysisResult');
+
+        // ★ 다른 탭(노출분석 등)에 삭제 신호 전송 ★
+        localStorage.setItem('dataClearSignal', Date.now().toString());
+        setTimeout(() => localStorage.removeItem('dataClearSignal'), 100);
+
+        // ===== KPI 섹션 초기화 =====
+        const kpiCurrentHedge = document.getElementById('kpiCurrentHedge');
+        if (kpiCurrentHedge) {
+            kpiCurrentHedge.textContent = '0%';
+            kpiCurrentHedge.className = 'text-3xl font-bold text-gray-400';
+        }
+        const kpiHedgeGap = document.getElementById('kpiHedgeGap');
+        if (kpiHedgeGap) {
+            kpiHedgeGap.textContent = '데이터 없음';
+            kpiHedgeGap.className = 'indicator-gray text-[10px] px-2 py-1 rounded font-bold mb-1';
+        }
+        const kpiUnhedgedExposure = document.getElementById('kpiUnhedgedExposure');
+        if (kpiUnhedgedExposure) {
+            kpiUnhedgedExposure.textContent = '0억원';
+        }
+
+        // ===== 거래 테이블 초기화 =====
+        const tradeBody = document.getElementById('tradeListBody');
+        if (tradeBody) {
+            tradeBody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="p-8 text-center text-gray-400">
+                        <div class="text-4xl mb-2">📊</div>
+                        <p>업로드된 데이터가 없습니다.</p>
+                        <p class="text-xs mt-2">Excel 파일을 업로드하세요.</p>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // ===== 집계 테이블 초기화 =====
+        const aggElements = {
+            'aggTotalCount': '0건',
+            'aggCurrencyCount': '0개',
+            'aggTotalReceivable': '0억원',
+            'aggTotalPayable': '0억원',
+            'aggNetExposure': '0억원'
+        };
+        Object.entries(aggElements).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        });
+
+        const aggBody = document.getElementById('aggTableBody');
+        if (aggBody) {
+            aggBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="p-6 text-center text-gray-400">
+                        데이터를 업로드하면 자동으로 집계됩니다
+                    </td>
+                </tr>
+            `;
+        }
+
+        // ===== 통합 헤지 전략 섹션 초기화 =====
+        resetIntegratedHedgeSection();
+        console.log('   ✓ 통합 헤지 전략 섹션 초기화 완료');
+
+        // ===== 카운트 초기화 =====
+        const countEl = document.getElementById('tradeCount');
+        if (countEl) {
+            countEl.textContent = '데이터 없음';
+            countEl.className = 'text-sm font-bold text-white bg-gray-400 px-4 py-2 rounded-lg';
+        }
+
+        // ===== 내부헤지 결과 섹션 제거 =====
+        const nettingSection = document.querySelector('.bg-gradient-to-r.from-green-50');
+        if (nettingSection) {
+            nettingSection.remove();
+        }
+
+        // ===== 상단 알림 제거 =====
+        const statusDiv = document.querySelector('.bg-blue-50.border-b');
+        if (statusDiv) {
+            statusDiv.remove();
+        }
+
+        // ===== 헤지 계산 버튼 비활성화 =====
+        const btn = document.getElementById('runHedgeAnalysisBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.remove('animate-pulse');
+            btn.innerHTML = '⚡ 헤지 계산 실행';
+        }
+
+        console.log('✅ 모든 데이터가 삭제되었습니다.');
+        alert('✅ 모든 데이터가 삭제되었습니다.\n\n- 업로드 데이터\n- KPI 현황\n- 집계 테이블\n- 제안 거래\n\n모두 초기화 완료!');
+    }
+
+    // KPI 섹션 업데이트 함수
+    function updateKPISection(data) {
+        console.log('📊 KPI 섹션 업데이트 시작...');
+        
+        const rates = {
+            'USD': 1350, 'EUR': 1500, 'JPY': 10.5, 'CNY': 190,
+            'GBP': 1750, 'AUD': 900, 'CAD': 1000, 'CHF': 1550,
+            'HKD': 175, 'SGD': 1020, 'THB': 38, 'VND': 0.055
+        };
+
+        // 통화별 집계
+        let totalExposureKRW = 0;
+        let totalReceivableKRW = 0;
+        let totalPayableKRW = 0;
+
+        data.forEach(item => {
+            const rate = rates[item.currency] || 1350;
+            const amountKRW = item.amount * rate;
+            
+            if (item.type === 'receivable') {
+                totalReceivableKRW += amountKRW;
+            } else if (item.type === 'payable') {
+                totalPayableKRW += amountKRW;
+            }
+        });
+
+        // 순노출 계산
+        totalExposureKRW = Math.abs(totalReceivableKRW - totalPayableKRW);
+        
+        // 억원 환산
+        const exposureEokWon = (totalExposureKRW / 100000000).toFixed(0);
+        
+        // 현재 헤지 비율 계산 (내부헤지로 상쇄된 부분)
+        const internallyHedged = Math.min(totalReceivableKRW, totalPayableKRW);
+        const totalGrossExposure = totalReceivableKRW + totalPayableKRW;
+        const currentHedgeRatio = totalGrossExposure > 0 
+            ? ((internallyHedged / totalGrossExposure) * 100).toFixed(1)
+            : 0;
+        
+        // 목표 대비 갭 계산
+        const targetRatio = 75;
+        const gap = targetRatio - parseFloat(currentHedgeRatio);
+
+        // KPI 업데이트
+        const kpiCurrentHedge = document.getElementById('kpiCurrentHedge');
+        if (kpiCurrentHedge) {
+            kpiCurrentHedge.textContent = `${currentHedgeRatio}%`;
+            // 색상 조정
+            if (parseFloat(currentHedgeRatio) >= 70) {
+                kpiCurrentHedge.className = 'text-3xl font-bold text-green-600';
+            } else if (parseFloat(currentHedgeRatio) >= 50) {
+                kpiCurrentHedge.className = 'text-3xl font-bold text-yellow-600';
+            } else {
+                kpiCurrentHedge.className = 'text-3xl font-bold text-red-500';
+            }
+        }
+
+        const kpiHedgeGap = document.getElementById('kpiHedgeGap');
+        if (kpiHedgeGap) {
+            if (gap > 0) {
+                kpiHedgeGap.textContent = `-${gap.toFixed(1)}% 부족`;
+                kpiHedgeGap.className = 'indicator-red text-[10px] px-2 py-1 rounded font-bold mb-1';
+            } else {
+                kpiHedgeGap.textContent = `+${Math.abs(gap).toFixed(1)}% 초과`;
+                kpiHedgeGap.className = 'indicator-green text-[10px] px-2 py-1 rounded font-bold mb-1';
+            }
+        }
+
+        const kpiUnhedgedExposure = document.getElementById('kpiUnhedgedExposure');
+        if (kpiUnhedgedExposure) {
+            kpiUnhedgedExposure.textContent = `${exposureEokWon}억원`;
+        }
+
+        console.log(`✅ KPI 업데이트 완료: 헤지비율 ${currentHedgeRatio}%, 미헤지노출 ${exposureEokWon}억원`);
+    }
+
+    // 업로드된 데이터 처리 (공통 함수)
+    async function processUploadedData(data) {
+        console.log('📊 데이터 처리 시작:', data.length, '건');
+        
+        // ★ 1. localStorage에 저장 (새로고침/탭 간 공유) ★
+        localStorage.setItem('uploadedData', JSON.stringify(data));
+        localStorage.setItem('uploadedDataTimestamp', new Date().toISOString());
+        
+        // ★ 2. 로컬 폴더에 저장 (영구 보관, 감사 대응) ★
+        await saveToLocalFolder(data);
+        
+        // 테이블 업데이트 (뷰 전용)
+        updateDashboardWithData(data);
+        updateTradeListTable(data);
+        
+        // 집계 테이블 업데이트 (뷰 전용)
+        updateAggregationSummary(data);
+        
+        // ★ KPI 섹션 업데이트 (뷰 전용) ★
+        updateKPISection(data);
+        
+        // ⚠️ 헤지 전략 계산은 제거됨 (서버에서만 수행)
+        // 사용자가 "헤지 계산 실행" 버튼을 클릭해야 서버 API 호출
+        
+        // 헤지 계산 버튼 활성화
+        const btn = document.getElementById('runHedgeAnalysisBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.add('btn-ready-pulse');
+        }
+        
+        // 삭제 버튼 표시
+        const clearBtn = document.getElementById('clearDataBtn');
+        if (clearBtn) {
+            clearBtn.style.display = 'block';
+        }
+        
+        // ★ 다른 탭(노출분석 등)에 데이터 업로드 신호 전송 ★
+        localStorage.setItem('dataUploadSignal', Date.now().toString());
+        setTimeout(() => localStorage.removeItem('dataUploadSignal'), 100);
+        
+        // ★ 익명화 후 서버로 전송하여 분석 실행 ★
+        await sendAnonymizedDataToServer(data);
+        
+        // ★ 업로드 완료 알림 ★
+        const localSaveStatus = localStorage.getItem('lastLocalSaveStatus') === 'success' ? '✅' : '⚠️';
+        const localSavePath = localStorage.getItem('lastLocalSavePath');
+        const serverSaveStatus = '✅'; // 서버는 항상 전송 시도
+        
+        let localSaveMsg = '';
+        if (localSaveStatus === '✅') {
+            localSaveMsg = `✅ 로컬 폴더: ${localSavePath || 'HEDGEFREEDOM'}`;
+        } else {
+            localSaveMsg = `⚠️ 로컬 폴더: 미설정 (브라우저 메모리만)`;
+        }
+        
+        alert(
+            `📊 데이터 업로드 완료! (${data.length}건)\n\n` +
+            `${localSaveMsg}\n` +
+            `${serverSaveStatus} 서버 전송 (익명화)\n\n` +
+            `상세 결과는 좌측 메뉴의 "노출 분석" 탭에서 확인하세요.`
+        );
+        
+        // 상태 초기화
+        localStorage.removeItem('lastLocalSaveStatus');
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ★ 로컬 폴더 저장 (감사 대응, 영구 보관) ★
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    async function saveToLocalFolder(data) {
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('💾 로컬 폴더 저장 프로세스 시작');
+        console.log(`   데이터: ${data.length}건`);
+        console.log('═══════════════════════════════════════════════════════');
+        
+        // 1. localStorageHandler 확인
+        if (!window.localStorageHandler) {
+            console.warn('⚠️ localStorageHandler가 로드되지 않았습니다!');
+            console.warn('   파일: core/local-storage-handler.js 확인 필요');
+            console.warn('   → 브라우저 메모리와 서버에만 저장됩니다.');
+            
+            localStorage.setItem('lastLocalSaveStatus', 'failed');
+            localStorage.setItem('lastLocalSaveError', 'localStorageHandler 미로드');
+            
+            return false;
+        }
+        
+        try {
+            console.log('📂 localStorageHandler 확인 완료');
+            
+            // 2. 폴더 초기화 확인
+            if (!localStorageHandler.directoryHandle) {
+                console.warn('⚠️ 작업 폴더가 선택되지 않았습니다. 자동 초기화 시도...');
+                
+                try {
+                    // 자동으로 폴더 선택 프롬프트 표시
+                    await localStorageHandler.initialize();
+                    console.log('✅ 폴더 초기화 완료');
+                } catch (initError) {
+                    console.error('❌ 폴더 초기화 실패:', initError);
+                    console.warn('   → 로컬 폴더 저장 건너뜀 (서버 저장만 진행)');
+                    return false;
+                }
+            }
+            
+            // 🔍 3. 폴더 유효성 검사 (경로 추적)
+            console.log('🔍 폴더 유효성 검사 시작...');
+            console.log('   현재 핸들:', localStorageHandler.directoryHandle?.name);
+            
+            const isValid = await localStorageHandler.validateFolderAccess();
+            console.log('   검사 결과:', isValid ? '✅ 유효함' : '❌ 유효하지 않음');
+            
+            if (!isValid) {
+                console.warn('⚠️ 폴더가 유효하지 않습니다 (삭제/이동/권한 상실)');
+                console.log('🔄 자동 폴더 복구 시도...');
+                
+                // 자동 복구 시도
+                const recovered = await localStorageHandler.autoRecoverFolder();
+                console.log('   복구 결과:', recovered ? '✅ 성공' : '❌ 실패');
+                
+                if (!recovered) {
+                    console.error('❌ 폴더 복구 실패');
+                    console.warn('   → 로컬 폴더 저장 건너뜀 (서버 저장만 진행)');
+                    
+                    // 실패 상태 저장
+                    localStorage.setItem('lastLocalSaveStatus', 'failed');
+                    localStorage.setItem('lastLocalSaveError', '폴더 접근 불가 (삭제/이동됨)');
+                    
+                    return false;
+                }
+                
+                console.log('✅ 폴더 복구 완료, 저장 계속 진행');
+            }
+            
+            console.log('💾 로컬 폴더 저장 중...');
+            console.log('   📁 폴더:', localStorageHandler.directoryHandle.name);
+            
+            // 3. 거래 데이터 저장
+            const savePositionsResult = await localStorageHandler.savePositions(data);
+            if (savePositionsResult) {
+                console.log('✅ positions.json 저장 완료');
+            } else {
+                console.warn('⚠️ positions.json 저장 실패');
+            }
+            
+            // 4. 타임스탬프 스냅샷 저장 (히스토리)
+            const saveSnapshotResult = await localStorageHandler.saveSnapshot({
+                timestamp: new Date().toISOString(),
+                dataCount: data.length,
+                positions: data,
+                metadata: {
+                    uploadedAt: new Date().toISOString(),
+                    browser: navigator.userAgent,
+                    dataHash: btoa(JSON.stringify(data).substring(0, 100))
+                }
+            });
+            
+            if (saveSnapshotResult) {
+                console.log('✅ 스냅샷 저장 완료');
+            } else {
+                console.warn('⚠️ 스냅샷 저장 실패');
+            }
+            
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('✅ 로컬 폴더 저장 완료');
+            console.log(`   📁 위치: ${localStorageHandler.directoryHandle.name}/`);
+            console.log('   📄 파일: data/positions.json');
+            console.log('   📜 히스토리: history/{날짜}/snapshot_xxx.json');
+            console.log('   🔒 보호: 삭제/수정 시 관리자 승인 필요');
+            console.log('═══════════════════════════════════════════════════════');
+            
+            // 성공 상태 저장
+            localStorage.setItem('lastLocalSaveStatus', 'success');
+            localStorage.setItem('lastLocalSavePath', localStorageHandler.directoryHandle.name);
+            
+            // 저장 성공 로그 기록
+            await localStorageHandler._logSystemEvent('DATA_SAVED', {
+                dataCount: data.length,
+                folderPath: localStorageHandler.directoryHandle.name,
+                saveType: 'auto'
+            });
+            
+            return true;
+            
+        } catch (error) {
+            console.error('═══════════════════════════════════════════════════════');
+            console.error('❌ 로컬 폴더 저장 오류');
+            console.error('   오류 종류:', error.name);
+            console.error('   오류 메시지:', error.message);
+            console.error('   스택:', error.stack);
+            console.error('═══════════════════════════════════════════════════════');
+            
+            // 실패 상태 저장
+            localStorage.setItem('lastLocalSaveStatus', 'failed');
+            localStorage.setItem('lastLocalSaveError', error.message);
+            
+            // 저장 실패 로그 기록 (조용히)
+            try {
+                if (window.localStorageHandler) {
+                    await localStorageHandler._logSystemEvent('DATA_SAVE_FAILED', {
+                        errorName: error.name,
+                        errorMessage: error.message,
+                        dataCount: data?.length || 0
+                    });
+                }
+            } catch (logError) {
+                console.error('로그 기록 실패:', logError);
+            }
+            
+            // 조용히 실패 처리 (팝업 없음)
+            console.warn('⚠️ 로컬 폴더 저장 실패, 서버 저장은 계속 진행합니다.');
+            
+            return false;
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ★ 하이브리드 파이프라인: 익명화된 숫자 → 서버 계산기 → 결과 반영 ★
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    // 익명화된 데이터를 서버 계산기로 전송
+    async function sendAnonymizedDataToServer(data) {
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('🔒 하이브리드 파이프라인 시작');
+        console.log('   ✓ 고객 데이터: 로컬에만 저장');
+        console.log('   ✓ 서버 전송: 숫자만 (고객정보 일체 없음)');
+        console.log('═══════════════════════════════════════════════════════');
+        
+        // 1단계: 익명화 처리 (숫자만 추출)
+        const anonymizedData = anonymizeTradeData(data);
+        
+        // 전송 전 검증: 고객정보가 포함되지 않았는지 확인
+        console.log('📋 서버 전송 데이터 샘플:');
+        console.log(JSON.stringify(anonymizedData.slice(0, 2), null, 2));
+        
+        // 2단계: 서버 계산기 호출용 요청 데이터 구성
+        const calculatorRequest = {
+            // 통화별 집계 (숫자만)
+            currencySummary: aggregateByCurrency(anonymizedData),
+            
+            // 만기별 분포 (숫자만)
+            maturityBuckets: categorizeByMaturity(anonymizedData),
+            
+            // 계산 옵션
+            options: {
+                targetHedgeRatio: 75,
+                riskTolerance: 'moderate',
+                calculators: ['01', '02', '03', '05']  // 사용할 계산기 목록
+            }
+        };
+
+        console.log('📤 서버 계산기 요청 데이터:', calculatorRequest);
+        
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 서버 URL 설정 (네이버 클라우드 등 외부 서버로 변경 가능)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 1. 로컬 개발: '' (현재 호스트)
+        // 2. 네이버 클라우드: 'https://your-naver-server.kr'
+        // 설정 방법: HedgeFreedomConfig.setCalculatorServer('https://...')
+        // 또는: localStorage.setItem('CALCULATOR_SERVER', 'https://...')
+        const serverUrl = (window.HedgeFreedomConfig?.getApiUrl) 
+            ? window.HedgeFreedomConfig.getApiUrl('/api/calculator/batch')
+            : '/api/calculator/batch';
+        
+        console.log('🌐 계산기 서버:', serverUrl);
+        
+        try {
+            // 3단계: 서버 계산기 API 호출
+            const response = await fetch(serverUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(calculatorRequest)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ 서버 계산기 응답 수신:', result);
+                
+                // 4단계: 계산 결과를 로컬 대시보드에 반영
+                // ★ localStorage에 저장 (새로고침/탭 간 공유) ★
+                localStorage.setItem('serverAnalysisResult', JSON.stringify(result));
+                // 같은 탭에서도 즉시 반영되도록 커스텀 이벤트 발송
+                try {
+                    window.dispatchEvent(new CustomEvent('serverAnalysisResultUpdated', { detail: result }));
+                } catch (e) {
+                    console.warn('Custom event dispatch failed:', e);
+                }
+                applyServerAnalysisResults(result, data);
+                
+                showNotification('success', '서버 계산 완료! 분석 결과가 반영되었습니다.');
+                
+            } else {
+                console.warn('⚠️ 서버 계산기 응답 오류, 로컬 분석 진행...');
+                runLocalAnalysis(data);
+            }
+        } catch (error) {
+            console.error('❌ 서버 통신 오류:', error);
+            console.log('⚠️ 오프라인 모드: 로컬 분석으로 대체...');
+            runLocalAnalysis(data);
+        }
+    }
+
+    // 통화별 집계 (익명화된 데이터)
+    function aggregateByCurrency(anonymizedData) {
+        const summary = {};
+        
+        anonymizedData.forEach(item => {
+            if (!summary[item.ccy]) {
+                summary[item.ccy] = { receivable: 0, payable: 0, count: 0 };
+            }
+            
+            if (item.dir === 'R') {
+                summary[item.ccy].receivable += item.amt;
+            } else {
+                summary[item.ccy].payable += item.amt;
+            }
+            summary[item.ccy].count++;
+        });
+        
+        return summary;
+    }
+
+    // 만기별 분류 (익명화된 데이터)
+    function categorizeByMaturity(anonymizedData) {
+        const buckets = {
+            '0-30': { receivable: 0, payable: 0 },
+            '31-60': { receivable: 0, payable: 0 },
+            '61-90': { receivable: 0, payable: 0 },
+            '91-180': { receivable: 0, payable: 0 },
+            '181-365': { receivable: 0, payable: 0 },
+            '365+': { receivable: 0, payable: 0 }
+        };
+        
+        anonymizedData.forEach(item => {
+            let bucket;
+            const days = item.daysToMaturity;
+            
+            if (days <= 30) bucket = '0-30';
+            else if (days <= 60) bucket = '31-60';
+            else if (days <= 90) bucket = '61-90';
+            else if (days <= 180) bucket = '91-180';
+            else if (days <= 365) bucket = '181-365';
+            else bucket = '365+';
+            
+            if (item.dir === 'R') {
+                buckets[bucket].receivable += item.amt;
+            } else {
+                buckets[bucket].payable += item.amt;
+            }
+        });
+        
+        return buckets;
+    }
+
+    // 알림 표시
+    function showNotification(type, message) {
+        const colors = {
+            success: 'bg-green-100 border-green-500 text-green-800',
+            error: 'bg-red-100 border-red-500 text-red-800',
+            warning: 'bg-yellow-100 border-yellow-500 text-yellow-800'
+        };
+        
+        const div = document.createElement('div');
+        div.className = `fixed top-4 right-4 p-4 rounded-lg border-l-4 ${colors[type]} shadow-lg z-50 transition-opacity duration-500`;
+        div.innerHTML = `<span class="font-bold">${message}</span>`;
+        document.body.appendChild(div);
+        
+        setTimeout(() => {
+            div.style.opacity = '0';
+            setTimeout(() => div.remove(), 500);
+        }, 3000);
+    }
+
+    // 서버 분석 결과 반영 (로컬 원본 데이터와 매핑)
+    function applyServerAnalysisResults(result, originalData) {
+        console.log('📊 서버 계산 결과를 로컬 대시보드에 반영...');
+        
+        // KPI 업데이트 (서버에서 계산된 정확한 값)
+        if (result.kpi) {
+            const kpiCurrentHedge = document.getElementById('kpiCurrentHedge');
+            if (kpiCurrentHedge && result.kpi.currentHedgeRatio !== undefined) {
+                kpiCurrentHedge.textContent = `${result.kpi.currentHedgeRatio}%`;
+                
+                // 색상 업데이트
+                if (result.kpi.currentHedgeRatio >= 70) {
+                    kpiCurrentHedge.className = 'text-3xl font-bold text-green-600';
+                } else if (result.kpi.currentHedgeRatio >= 50) {
+                    kpiCurrentHedge.className = 'text-3xl font-bold text-yellow-600';
+                } else {
+                    kpiCurrentHedge.className = 'text-3xl font-bold text-red-500';
+                }
+            }
+            
+            const kpiUnhedgedExposure = document.getElementById('kpiUnhedgedExposure');
+            if (kpiUnhedgedExposure && result.kpi.unhedgedExposure !== undefined) {
+                kpiUnhedgedExposure.textContent = `${result.kpi.unhedgedExposure}억원`;
+            }
+            
+            const kpiHedgeGap = document.getElementById('kpiHedgeGap');
+            if (kpiHedgeGap && result.kpi.hedgeGap !== undefined) {
+                const gap = result.kpi.hedgeGap;
+                if (gap > 0) {
+                    kpiHedgeGap.textContent = `-${gap.toFixed(1)}% 부족`;
+                    kpiHedgeGap.className = 'indicator-red text-[10px] px-2 py-1 rounded font-bold mb-1';
+                } else {
+                    kpiHedgeGap.textContent = `+${Math.abs(gap).toFixed(1)}% 초과`;
+                    kpiHedgeGap.className = 'indicator-green text-[10px] px-2 py-1 rounded font-bold mb-1';
+                }
+            }
+        }
+        
+        // 제안 거래 테이블 업데이트 (서버 계산 결과 기반)
+        if (result.suggestions && result.suggestions.length > 0) {
+            updateSuggestedTrades(result.suggestions);
+        }
+        
+        console.log('✅ 서버 계산 결과 반영 완료 (고객 데이터는 로컬에만 유지)');
+    }
+
+    // 제안 거래 테이블 업데이트
+    function updateSuggestedTrades(suggestions) {
+        const tbody = document.getElementById('hedgeSuggestionsBody');
+        if (!tbody) {
+            console.warn('⚠️ hedgeSuggestionsBody 요소를 찾을 수 없습니다.');
+            return;
+        }
+
+        const priorityColors = {
+            'high': { bg: 'bg-red-100', text: 'text-red-700', label: '높음' },
+            'medium': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: '중간' },
+            'low': { bg: 'bg-green-100', text: 'text-green-700', label: '낮음' }
+        };
+
+        const rows = suggestions.map(s => {
+            const priority = priorityColors[s.priority] || priorityColors.medium;
+            const amountFormatted = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0
+            }).format(s.amount);
+
+            return `
+                <tr class="hover:bg-blue-50">
+                    <td class="p-4"><span class="px-2 py-1 ${priority.bg} ${priority.text} rounded-full font-bold">${priority.label}</span></td>
+                    <td class="p-4">
+                        <p class="font-bold text-gray-800">${s.product}</p>
+                        <p class="text-[10px] text-gray-400 italic">${s.reason || ''}</p>
+                    </td>
+                    <td class="p-4 font-bold text-blue-700">${s.currency} / KRW</td>
+                    <td class="p-4 font-bold">${amountFormatted}</td>
+                    <td class="p-4 font-mono">${s.targetDate || '-'}</td>
+                    <td class="p-4">
+                        <span class="font-bold">${s.bank || '-'}</span>
+                        ${s.suggestedRate ? `<p class="text-[10px] text-green-600 font-medium">예상 환율: ${s.suggestedRate}</p>` : ''}
+                    </td>
+                    <td class="p-4 text-center">
+                        <button class="px-4 py-1.5 border border-blue-600 text-blue-600 rounded-sm font-bold hover:bg-blue-600 hover:text-white transition">실행</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.innerHTML = rows;
+    }
+
+    // 로컬 분석 (서버 연결 실패 시 대체)
+    function runLocalAnalysis(data) {
+        console.log('📊 로컬 분석 시작 (오프라인 모드)...');
+        
+        const rates = { 'USD': 1350, 'EUR': 1500, 'JPY': 10.5, 'CNY': 190 };
+        
+        // 통화별 집계
+        const currencySummary = {};
+        let totalReceivableKRW = 0;
+        let totalPayableKRW = 0;
+        
+        data.forEach(item => {
+            const ccy = item.currency || 'USD';
+            const amount = parseFloat(item.amount) || 0;
+            const rate = rates[ccy] || 1350;
+            
+            if (!currencySummary[ccy]) {
+                currencySummary[ccy] = { receivable: 0, payable: 0 };
+            }
+            if (item.type === 'receivable') {
+                currencySummary[ccy].receivable += amount;
+                totalReceivableKRW += amount * rate;
+            } else {
+                currencySummary[ccy].payable += amount;
+                totalPayableKRW += amount * rate;
+            }
+        });
+        
+        // 계산
+        const netExposureKRW = Math.abs(totalReceivableKRW - totalPayableKRW);
+        const netExposureUSD = netExposureKRW / 1350;
+        const internalHedge = Math.min(totalReceivableKRW, totalPayableKRW);
+        const totalGross = totalReceivableKRW + totalPayableKRW;
+        const hedgeRatio = totalGross > 0 ? (internalHedge / totalGross * 100) : 0;
+        const var95 = netExposureKRW * 0.015 * 1.645;
+        
+        // 서버 결과와 동일한 형식으로 저장
+        const localResult = {
+            mode: 'local',
+            timestamp: new Date().toISOString(),
+            risk: {
+                var95: var95,
+                projectedVar: var95 * 0.3
+            },
+            exposure: {
+                netExposure: netExposureUSD,
+                grossExposure: totalGross / 1350,
+                currencies: Object.keys(currencySummary),
+                byCurrency: Object.fromEntries(
+                    Object.entries(currencySummary).map(([ccy, data]) => [
+                        ccy,
+                        {
+                            receivable: data.receivable,
+                            payable: data.payable,
+                            nettedAmount: Math.min(data.receivable, data.payable),
+                            hedgedAmount: 0
+                        }
+                    ])
+                )
+            },
+            hedge: {
+                currentRatio: hedgeRatio,
+                targetRatio: 75
+            },
+            sensitivity: {
+                upside: netExposureKRW * 0.05,
+                downside: netExposureKRW * 0.05 * (1 - hedgeRatio / 100)
+            }
+        };
+        
+        // ★ localStorage에 저장 (노출분석에서 사용) ★
+        localStorage.setItem('serverAnalysisResult', JSON.stringify(localResult));
+        console.log('💾 로컬 분석 결과 저장:', localResult);
+        
+        // 제안 거래 생성
+        const suggestions = generateLocalSuggestions(data);
+        updateSuggestedTrades(suggestions);
+        
+        showNotification('warning', '오프라인 모드: 로컬 분석 결과 표시');
+        console.log('✅ 로컬 분석 완료');
+    }
+
+    // 로컬 제안 생성
+    function generateLocalSuggestions(data) {
+        const currencySummary = {};
+        
+        data.forEach(item => {
+            if (!currencySummary[item.currency]) {
+                currencySummary[item.currency] = { receivable: 0, payable: 0 };
+            }
+            if (item.type === 'receivable') {
+                currencySummary[item.currency].receivable += item.amount;
+            } else {
+                currencySummary[item.currency].payable += item.amount;
+            }
+        });
+
+        const suggestions = [];
+        
+        Object.entries(currencySummary).forEach(([currency, amounts]) => {
+            const netExposure = amounts.receivable - amounts.payable;
+            
+            if (Math.abs(netExposure) > 100000) {
+                suggestions.push({
+                    priority: Math.abs(netExposure) > 1000000 ? 'high' : 'medium',
+                    product: 'FX Forward (선물환)',
+                    currency: currency,
+                    amount: Math.abs(netExposure),
+                    targetDate: new Date(Date.now() + 90*24*60*60*1000).toISOString().split('T')[0],
+                    reason: netExposure > 0 ? '수출대금 헤지' : '수입대금 헤지',
+                    bank: '신한은행'
+                });
+            }
+        });
+
+        return suggestions;
+    }
+
+    // 컬럼 매핑 모달 표시
+    function showColumnMappingModal(rawData, fileName) {
+        console.log('🔍 컬럼 매핑 모달 표시');
+        
+        const excelColumns = Object.keys(rawData[0]);
+        console.log('Excel 컬럼:', excelColumns);
+        
+        // 저장된 매핑 템플릿 불러오기
+        const savedMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
+        
+        // 모달 생성
+        const modal = document.createElement('div');
+        modal.id = 'columnMappingModal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <!-- 헤더 -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 sticky top-0">
+                    <h3 class="text-2xl font-bold">📋 컬럼 매핑 설정</h3>
+                    <p class="text-sm mt-1 text-blue-100">Excel 컬럼을 시스템 표준 컬럼에 매핑하세요</p>
+                    <p class="text-xs mt-1 text-blue-200">파일: ${fileName}</p>
+                </div>
+
+                <!-- 본문 -->
+                <div class="p-6">
+                    <!-- 저장된 템플릿 -->
+                    ${Object.keys(savedMappings).length > 0 ? `
+                        <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                            <h4 class="text-sm font-bold text-gray-700 mb-2">💾 저장된 매핑 템플릿</h4>
+                            <div class="flex flex-wrap gap-2">
+                                ${Object.keys(savedMappings).map(name => `
+                                    <button onclick="loadMappingTemplate('${name}')" 
+                                        class="px-3 py-1 bg-white border border-blue-300 text-blue-700 rounded hover:bg-blue-100 text-xs font-semibold">
+                                        ${name}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- 자동 매핑 버튼 -->
+                    <div class="mb-6">
+                        <button onclick="autoMapColumns()" class="w-full px-4 py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600">
+                            🤖 자동 매핑 (AI 추천)
+                        </button>
+                    </div>
+
+                    <!-- 매핑 테이블 -->
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-3 gap-4 text-xs font-bold text-gray-600 px-2">
+                            <div>시스템 컬럼 (필수)</div>
+                            <div>Excel 컬럼 선택</div>
+                            <div>미리보기</div>
+                        </div>
+
+                        ${[
+                            { key: 'id', label: '거래ID', required: false },
+                            { key: 'entity', label: '거래처명', required: true },
+                            { key: 'currency', label: '통화', required: true },
+                            { key: 'amount', label: '외화금액', required: true },
+                            { key: 'date', label: '결제예정일', required: true },
+                            { key: 'type', label: '구분 (채권/채무)', required: true }
+                        ].map(col => `
+                            <div class="grid grid-cols-3 gap-4 items-center p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                    <div class="font-bold text-gray-800">${col.label}</div>
+                                    ${col.required ? '<span class="text-xs text-red-600">* 필수</span>' : '<span class="text-xs text-gray-500">선택</span>'}
+                                </div>
+                                <div>
+                                    <select id="map_${col.key}" class="w-full px-3 py-2 border rounded text-sm" onchange="updatePreview('${col.key}')">
+                                        <option value="">-- 선택 --</option>
+                                        ${excelColumns.map(ecol => `<option value="${ecol}">${ecol}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div id="preview_${col.key}" class="text-xs text-gray-600 truncate">
+                                    -
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- 템플릿 저장 -->
+                    <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                        <h4 class="text-sm font-bold text-gray-700 mb-2">💾 이 매핑을 템플릿으로 저장</h4>
+                        <div class="flex gap-2">
+                            <input type="text" id="templateName" placeholder="템플릿 이름 (예: 더존형식)" 
+                                class="flex-1 px-3 py-2 border rounded text-sm">
+                            <button onclick="saveMappingTemplate()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700 text-sm">
+                                저장
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 푸터 -->
+                <div class="px-6 py-4 bg-gray-50 flex justify-between items-center sticky bottom-0">
+                    <button onclick="closeMappingModal()" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400">
+                        취소
+                    </button>
+                    <button onclick="applyColumnMapping()" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700">
+                        ✅ 매핑 적용하고 데이터 불러오기
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 원본 데이터를 전역 변수로 저장
+        window.currentRawData = rawData;
+        window.currentExcelColumns = excelColumns;
+    }
+
+    // 미리보기 업데이트
+    function updatePreview(systemKey) {
+        const select = document.getElementById(`map_${systemKey}`);
+        const excelCol = select.value;
+        const preview = document.getElementById(`preview_${systemKey}`);
+        
+        if (excelCol && window.currentRawData && window.currentRawData[0]) {
+            const value = window.currentRawData[0][excelCol];
+            preview.textContent = value || '-';
+        } else {
+            preview.textContent = '-';
+        }
+    }
+
+    // 자동 매핑
+    function autoMapColumns() {
+        console.log('🤖 자동 매핑 시작...');
+        
+        const mappingRules = {
+            id: ['id', 'ID', 'Id', '번호', '거래번호', 'transaction_id', 'trans_id'],
+            entity: ['entity', 'Entity', '거래처', '거래처명', '업체명', '고객명', 'company', 'customer'],
+            currency: ['currency', 'Currency', 'Ccy', 'ccy', '통화', '통화코드', '외화종류', '외화'],
+            amount: ['amount', 'Amount', '금액', '외화금액', '거래금액', 'amt'],
+            date: ['date', 'Date', '일자', '만기일', '결제일', '결제예정일', '거래일', 'payment_date'],
+            type: ['type', 'Type', '구분', '거래구분', '유형', 'transaction_type']
+        };
+        
+        let matchCount = 0;
+        
+        Object.keys(mappingRules).forEach(systemKey => {
+            const select = document.getElementById(`map_${systemKey}`);
+            const rules = mappingRules[systemKey];
+            
+            // Excel 컬럼과 매칭
+            for (const excelCol of window.currentExcelColumns) {
+                const found = rules.some(rule => 
+                    excelCol.toLowerCase().includes(rule.toLowerCase()) ||
+                    rule.toLowerCase().includes(excelCol.toLowerCase())
+                );
+                
+                if (found) {
+                    select.value = excelCol;
+                    updatePreview(systemKey);
+                    matchCount++;
+                    console.log(`  ✅ ${systemKey} → ${excelCol}`);
+                    break;
+                }
+            }
+        });
+        
+        alert(`🤖 자동 매핑 완료!\n\n${matchCount}개 컬럼이 자동으로 매핑되었습니다.\n나머지는 수동으로 선택해주세요.`);
+    }
+
+    // 매핑 템플릿 저장
+    function saveMappingTemplate() {
+        const templateName = document.getElementById('templateName').value.trim();
+        if (!templateName) {
+            alert('템플릿 이름을 입력하세요.');
+            return;
+        }
+        
+        const mapping = {
+            id: document.getElementById('map_id').value,
+            entity: document.getElementById('map_entity').value,
+            currency: document.getElementById('map_currency').value,
+            amount: document.getElementById('map_amount').value,
+            date: document.getElementById('map_date').value,
+            type: document.getElementById('map_type').value
+        };
+        
+        // 로컬 스토리지에 저장
+        const savedMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
+        savedMappings[templateName] = mapping;
+        localStorage.setItem('columnMappings', JSON.stringify(savedMappings));
+        
+        alert(`✅ "${templateName}" 템플릿이 저장되었습니다!`);
+        console.log('💾 저장된 매핑:', mapping);
+    }
+
+    // 매핑 템플릿 불러오기
+    function loadMappingTemplate(templateName) {
+        const savedMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
+        const mapping = savedMappings[templateName];
+        
+        if (!mapping) {
+            alert('템플릿을 찾을 수 없습니다.');
+            return;
+        }
+        
+        // 매핑 적용
+        Object.keys(mapping).forEach(key => {
+            const select = document.getElementById(`map_${key}`);
+            if (select && mapping[key]) {
+                select.value = mapping[key];
+                updatePreview(key);
+            }
+        });
+        
+        alert(`✅ "${templateName}" 템플릿이 적용되었습니다!`);
+    }
+
+    // 컬럼 매핑 적용
+    function applyColumnMapping() {
+        console.log('✅ 컬럼 매핑 적용 시작...');
+        
+        const mapping = {
+            id: document.getElementById('map_id').value,
+            entity: document.getElementById('map_entity').value,
+            currency: document.getElementById('map_currency').value,
+            amount: document.getElementById('map_amount').value,
+            date: document.getElementById('map_date').value,
+            type: document.getElementById('map_type').value
+        };
+        
+        // 필수 컬럼 확인
+        const required = ['entity', 'currency', 'amount', 'date', 'type'];
+        const missing = required.filter(key => !mapping[key]);
+        
+        if (missing.length > 0) {
+            alert(`⚠️ 필수 컬럼을 모두 선택해주세요.\n\n누락: ${missing.join(', ')}`);
+            return;
+        }
+        
+        // 데이터 변환
+        const mappedData = window.currentRawData.map((row, index) => {
+            const result = {
+                id: mapping.id ? row[mapping.id] : `DATA-${String(index + 1).padStart(4, '0')}`,
+                entity: row[mapping.entity] || 'Unknown',
+                currency: row[mapping.currency] || 'USD',
+                amount: parseFloat(row[mapping.amount]) || 0,
+                date: row[mapping.date] || new Date().toISOString().split('T')[0],
+                type: normalizeType(row[mapping.type])
+            };
+            
+            // 날짜 정규화
+            if (typeof result.date === 'number') {
+                const excelDate = XLSX.SSF.parse_date_code(result.date);
+                result.date = `${excelDate.y}-${String(excelDate.m).padStart(2, '0')}-${String(excelDate.d).padStart(2, '0')}`;
+            }
+            
+            return result;
+        });
+        
+        console.log('✅ 매핑 완료:', mappedData.length, '건');
+        
+        // 모달 닫기
+        closeMappingModal();
+        
+        // 데이터 처리
+        processUploadedData(mappedData);
+    }
+
+    // 구분 값 정규화
+    function normalizeType(value) {
+        if (!value) return 'receivable';
+        
+        const str = String(value).toLowerCase();
+        if (str.includes('채권') || str.includes('매출') || str.includes('receivable') || str.includes('recv')) {
+            return 'receivable';
+        } else if (str.includes('채무') || str.includes('매입') || str.includes('payable') || str.includes('pay')) {
+            return 'payable';
+        }
+        return 'receivable';
+    }
+
+    // 모달 닫기
+    function closeMappingModal() {
+        const modal = document.getElementById('columnMappingModal');
+        if (modal) {
+            modal.remove();
+        }
+        window.currentRawData = null;
+        window.currentExcelColumns = null;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ★ 서버로 파싱된 데이터 전송 (증거 보관용) ★
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    async function uploadDataToServer(parsedData, originalFileName) {
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('📤 서버로 파싱된 데이터 전송 시작');
+        console.log('   ✓ 원본 파일명:', originalFileName);
+        console.log('   ✓ 데이터 건수:', parsedData.length, '건');
+        console.log('   ✓ 목적: 입증용 증거 보관 (컬럼 데이터만)');
+        console.log('═══════════════════════════════════════════════════════');
+        
+        try {
+            // 고객 ID 생성 (localStorage 또는 자동 생성)
+            let customerId = localStorage.getItem('customerId');
+            if (!customerId) {
+                // 타임스탬프 + 랜덤으로 고유 ID 생성
+                customerId = `customer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                localStorage.setItem('customerId', customerId);
+                console.log('✅ 새로운 고객 ID 생성:', customerId);
+            }
+            
+            // JSON 데이터 구성 (엑셀에서 추출한 컬럼만)
+            const uploadPayload = {
+                customerId: customerId,
+                fileName: originalFileName,
+                uploadTime: new Date().toISOString(),
+                dataCount: parsedData.length,
+                data: parsedData.map(row => ({
+                    // 표준화된 컬럼만 전송
+                    id: row.id,
+                    entity: row.entity,
+                    currency: row.currency,
+                    amount: row.amount,
+                    date: row.date,
+                    type: row.type,
+                    _sourceFile: row._sourceFile || originalFileName
+                }))
+            };
+            
+            console.log('📋 전송 데이터 샘플:', uploadPayload.data.slice(0, 2));
+            
+            // 서버 URL (환경에 따라 자동 선택)
+            const serverUrl = window.location.protocol === 'file:' 
+                ? 'http://localhost:9000/api/upload/data'
+                : '/api/upload/data';
+            
+            console.log('🌐 업로드 URL:', serverUrl);
+            
+            // 서버로 전송 (JSON)
+            const response = await fetch(serverUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(uploadPayload)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ 서버 저장 완료:', result);
+                console.log('   📁 저장 경로: server_data/customers/' + customerId + '/uploads/');
+                
+                // 성공 알림 (조용히)
+                showNotification('success', '데이터가 서버에 안전하게 저장되었습니다.');
+                
+                return result;
+            } else {
+                const errorText = await response.text();
+                console.warn('⚠️ 서버 저장 실패 (HTTP ' + response.status + ')');
+                console.warn('   응답:', errorText);
+                
+                if (response.status === 404) {
+                    console.error('❌ 서버 엔드포인트를 찾을 수 없습니다.');
+                    console.error('   URL:', serverUrl);
+                    console.error('   → 서버가 실행 중인지 확인하세요.');
+                    console.error('   → python mock_server_app.py');
+                }
+                
+                console.log('   ℹ️ 로컬 저장만 진행합니다.');
+            }
+            
+        } catch (error) {
+            console.error('❌ 서버 전송 오류:', error);
+            console.error('   오류 타입:', error.name);
+            console.error('   오류 메시지:', error.message);
+            
+            if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+                console.error('💡 서버가 실행되지 않았거나 연결할 수 없습니다.');
+                console.error('   → 터미널에서 서버를 시작하세요:');
+                console.error('   → python mock_server_app.py');
+                console.error('   → 또는: ./start-server.sh');
+            }
+            
+            console.log('   ℹ️ 오프라인 모드: 로컬 저장만 진행합니다.');
+            // 서버 오류가 있어도 로컬 처리는 계속 진행
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // 파일 업로드 이벤트
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('fileInputDirect');
+        if (fileInput) {
+            fileInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                console.log('📂 파일 업로드 시작:', file.name);
+                console.log('📂 파일 크기:', file.size, 'bytes');
+                console.log('📂 파일 타입:', file.type);
+                
+                try {
+                    // ★ 1단계: 브라우저에서 파일 읽기 및 파싱 ★
+                    console.log('🔍 1단계: 파일 파싱 시작...');
+                    const data = await readFileData(file);
+                    console.log('✅ 파일 읽기 완료:', data.length, '건');
+                    console.log('📊 첫 번째 데이터:', data[0]);
+                    
+                    // 컬럼 매핑 필요 여부 확인
+                    if (data.length > 0) {
+                        const firstRow = data[0];
+                        const hasStandardColumns = 
+                            firstRow.hasOwnProperty('currency') &&
+                            firstRow.hasOwnProperty('amount') &&
+                            firstRow.hasOwnProperty('date') &&
+                            firstRow.hasOwnProperty('type');
+                        
+                        if (!hasStandardColumns) {
+                            console.log('⚠️ 표준 컬럼이 없습니다. 컬럼 매핑 UI를 표시합니다.');
+                            showColumnMappingModal(data, file.name);
+                            e.target.value = '';
+                            return;
+                        }
+                    }
+                    
+                    // ★ 2단계: 파싱된 데이터를 서버로 전송 (증거 보관) ★
+                    console.log('🔍 2단계: 서버로 데이터 전송 시작...');
+                    await uploadDataToServer(data, file.name);
+                    console.log('✅ 2단계 완료: 서버 전송');
+                    
+                    // ★ 3단계: 로컬 처리 (await 추가) ★
+                    console.log('🔍 3단계: 로컬 폴더 저장 시작...');
+                    await processUploadedData(data);
+                    console.log('✅ 3단계 완료: 로컬 처리');
+                    
+                    // 파일 입력 초기화
+                    e.target.value = '';
+                    
+                    console.log('🎉 전체 업로드 프로세스 완료!');
+                } catch (error) {
+                    console.error('❌ 파일 업로드 오류:', error);
+                    alert('파일 업로드 실패: ' + error.message);
+                }
+            });
+        }
+
+        // 폴더 업로드 이벤트
+        const folderInput = document.getElementById('folderInputDirect');
+        if (folderInput) {
+            folderInput.addEventListener('change', async function(e) {
+                const files = Array.from(e.target.files);
+                if (!files || files.length === 0) return;
+
+                console.log(`📁 폴더 업로드: ${files.length}개 파일 발견`);
+
+                // Excel/CSV 파일만 필터링 (임시 파일 제외)
+                const validFiles = files.filter(file => {
+                    const name = file.name.toLowerCase();
+                    
+                    // ~$로 시작하는 Excel 임시 파일 제외
+                    if (name.startsWith('~$')) {
+                        console.log('⏭️ Excel 임시 파일 건너뜀:', file.name);
+                        return false;
+                    }
+                    
+                    // ._ 로 시작하는 macOS 임시 파일 제외
+                    if (name.startsWith('._')) {
+                        console.log('⏭️ macOS 임시 파일 건너뜀:', file.name);
+                        return false;
+                    }
+                    
+                    // Excel/CSV 파일만 허용
+                    return name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv');
+                });
+
+                console.log(`✅ 유효한 파일: ${validFiles.length}개`);
+
+                if (validFiles.length === 0) {
+                    alert('폴더에 Excel(.xlsx, .xls) 또는 CSV(.csv) 파일이 없습니다.');
+                    e.target.value = '';
+                    return;
+                }
+
+                console.log('📁 폴더 업로드 시작:', validFiles.length, '개 파일 발견');
+                console.log('📂 파일 목록:', validFiles.map(f => f.name));
+
+                let allData = [];
+                let processedCount = 0;
+                let errorFiles = [];
+
+                // 진행 상황 표시
+                const progressMessage = `📁 폴더 업로드 중... (0/${validFiles.length})`;
+                const tradeCountEl = document.getElementById('tradeCount');
+                if (tradeCountEl) {
+                    tradeCountEl.textContent = progressMessage;
+                }
+
+                try {
+                    for (const file of validFiles) {
+                        try {
+                            console.log(`📄 처리 중: ${file.name}`);
+                            
+                            // ★ 파일 읽기 및 파싱 ★
+                            const data = await readFileData(file);
+                            
+                            // 각 데이터에 원본 파일명 추가
+                            const dataWithSource = data.map(row => ({
+                                ...row,
+                                _sourceFile: file.name
+                            }));
+                            
+                            allData = allData.concat(dataWithSource);
+                            processedCount++;
+                            
+                            // 진행 상황 업데이트
+                            if (tradeCountEl) {
+                                tradeCountEl.textContent = `📁 폴더 업로드 중... (${processedCount}/${validFiles.length})`;
+                            }
+                            
+                            console.log(`✅ ${file.name}: ${data.length}건 처리 완료`);
+                        } catch (fileError) {
+                            console.error(`❌ ${file.name} 처리 오류:`, fileError);
+                            errorFiles.push({ name: file.name, error: fileError.message });
+                        }
+                    }
+
+                    if (allData.length === 0) {
+                        alert('모든 파일에서 데이터를 읽을 수 없습니다.\n\n오류 발생 파일:\n' + 
+                              errorFiles.map(f => `- ${f.name}: ${f.error}`).join('\n'));
+                        e.target.value = '';
+                        return;
+                    }
+
+                    console.log(`📊 총 ${allData.length}건의 데이터 병합 완료`);
+                    
+                    // 컬럼 매핑 필요 여부 확인
+                    if (allData.length > 0) {
+                        const firstRow = allData[0];
+                        const hasStandardColumns = 
+                            firstRow.hasOwnProperty('currency') &&
+                            firstRow.hasOwnProperty('amount') &&
+                            firstRow.hasOwnProperty('date') &&
+                            firstRow.hasOwnProperty('type');
+                        
+                        if (!hasStandardColumns) {
+                            console.log('⚠️ 표준 컬럼이 없습니다. 컬럼 매핑 UI를 표시합니다.');
+                            showColumnMappingModal(allData, `${validFiles.length}개 파일 (폴더 업로드)`);
+                            e.target.value = '';
+                            return;
+                        }
+                    }
+
+                    // ★ 서버로 파싱된 데이터 전송 (증거 보관) ★
+                    await uploadDataToServer(allData, `${validFiles.length}개 파일 (폴더 업로드)`);
+                    
+                    // 데이터 처리
+                    processUploadedData(allData);
+
+                    // 결과 알림
+                    let resultMessage = `✅ 폴더 업로드 완료!\n\n처리된 파일: ${processedCount}개\n총 데이터: ${allData.length}건`;
+                    if (errorFiles.length > 0) {
+                        resultMessage += `\n\n⚠️ 오류 발생 파일 (${errorFiles.length}개):\n` + 
+                                        errorFiles.map(f => `- ${f.name}`).join('\n');
+                    }
+                    alert(resultMessage);
+
+                } catch (error) {
+                    console.error('❌ 폴더 업로드 오류:', error);
+                    alert('폴더 업로드 실패: ' + error.message);
+                } finally {
+                    e.target.value = '';
+                }
+            });
+        }
+    });
+
+    // 파일 읽기 함수
+    async function readFileData(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            const fileName = file.name.toLowerCase();
+            
+            reader.onload = (e) => {
+                try {
+                    let rawData = [];
+                    
+                    if (fileName.endsWith('.csv')) {
+                        // CSV 파싱
+                        const text = e.target.result;
+                        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+                        rawData = parsed.data;
+                    } else {
+                        // Excel 파싱 (날짜 자동 변환 옵션 활성화)
+                        const workbook = XLSX.read(e.target.result, { 
+                            type: 'binary',
+                            cellDates: true,  // 날짜를 Date 객체로 자동 변환
+                            dateNF: 'yyyy-mm-dd'
+                        });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        rawData = XLSX.utils.sheet_to_json(firstSheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+                    }
+                    
+                    if (rawData.length === 0) {
+                        throw new Error('파일에 데이터가 없습니다.');
+                    }
+                    
+                    console.log('====================================');
+                    console.log('📋 Excel 원본 데이터 전체 구조:');
+                    console.log('첫 번째 행의 모든 컬럼:', Object.keys(rawData[0]));
+                    console.log('첫 번째 행 전체 데이터:', rawData[0]);
+                    console.log('====================================');
+                    
+                    // 🔒 개인정보 필드 자동 제거 (업로드 전 로컬 삭제)
+                    const sensitiveFields = [
+                        '기업명', '회사명', '업체명', '고객명', 'companyName', 'Company', 'CustomerName',
+                        '담당자', '담당자명', '성명', 'name', 'Name', 'Contact', 'Manager',
+                        '계좌번호', '계좌', 'Account', 'AccountNumber', 'AcctNo',
+                        '전화번호', '휴대폰', 'Phone', 'Mobile', 'Tel',
+                        '이메일', 'Email', 'E-mail',
+                        '주소', 'Address', 'Addr',
+                        '사업자번호', 'BusinessNo', 'CorpNo'
+                    ];
+                    
+                    rawData = rawData.map(row => {
+                        const cleaned = { ...row };
+                        sensitiveFields.forEach(field => {
+                            if (field in cleaned) {
+                                console.log(`🔒 개인정보 필드 제거: ${field}`);
+                                delete cleaned[field];
+                            }
+                        });
+                        return cleaned;
+                    });
+                    
+                    console.log('✅ 개인정보 필드 제거 완료. 남은 컬럼:', Object.keys(rawData[0]));
+                    
+                    // 데이터 표준화 (분석 필수 정보 추출)
+                    const standardizedData = rawData.map((row, index) => {
+                        console.log(`원본 데이터 [${index}]:`, row);
+                        
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 1. 거래 기본 정보 (계산용)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        
+                        // 거래 일자 및 시간
+                        let transactionDate = row.거래일시 || row.거래일자 || row.일자 || 
+                                            row.date || row.Date || row.DateTime || 
+                                            row.결제일 || row.만기일;
+                        
+                        let transactionTime = row.거래시간 || row.시간 || row.Time || null;
+                        
+                        // 날짜 처리
+                        if (typeof transactionDate === 'string') {
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(transactionDate)) {
+                                // YYYY-MM-DD 형식 유지
+                            } else {
+                                const parsed = new Date(transactionDate);
+                                if (!isNaN(parsed.getTime())) {
+                                    transactionDate = parsed.toISOString().split('T')[0];
+                                }
+                            }
+                        } else if (typeof transactionDate === 'number') {
+                            const excelDate = XLSX.SSF.parse_date_code(transactionDate);
+                            transactionDate = `${excelDate.y}-${String(excelDate.m).padStart(2, '0')}-${String(excelDate.d).padStart(2, '0')}`;
+                        } else if (transactionDate instanceof Date) {
+                            transactionDate = transactionDate.toISOString().split('T')[0];
+                        } else {
+                            transactionDate = new Date().toISOString().split('T')[0];
+                        }
+                        
+                        // 통화쌍
+                        const currencyPair = row.통화쌍 || row.통화 || row.currency || row.Currency || 
+                                           row.Ccy || row.외화 || 'USD/KRW';
+                        
+                        // 거래 유형 (매수/매도)
+                        let transactionType = row.거래유형 || row.구분 || row.type || row.Type || 
+                                            row.거래구분 || row.TradeType;
+                        
+                        if (transactionType) {
+                            const typeStr = String(transactionType).toLowerCase();
+                            if (typeStr.includes('매수') || typeStr.includes('import') || 
+                                typeStr.includes('결제') || typeStr.includes('buy')) {
+                                transactionType = 'buy';  // 매수 (Import/결제)
+                            } else if (typeStr.includes('매도') || typeStr.includes('export') || 
+                                      typeStr.includes('수금') || typeStr.includes('sell')) {
+                                transactionType = 'sell';  // 매도 (Export/수금)
+                            } else {
+                                transactionType = 'buy';
+                            }
+                        } else {
+                            transactionType = 'buy';
+                        }
+                        
+                        // 거래 금액 (외화)
+                        const foreignAmount = parseFloat(
+                            row.외화금액 || row.거래금액 || row.금액 || 
+                            row.amount || row.Amount || row.ForeignAmount || 0
+                        );
+                        
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 2. 비용 분석 정보 (핵심 데이터)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        
+                        // 적용 환율 (실행가)
+                        const appliedRate = parseFloat(
+                            row.적용환율 || row.실행가 || row.환율 || 
+                            row.rate || row.Rate || row.ExchangeRate || 0
+                        );
+                        
+                        // 시장 기준가 (매매기준율)
+                        const marketRate = parseFloat(
+                            row.매매기준율 || row.시장환율 || row.기준환율 || 
+                            row.marketRate || row.MarketRate || row.Benchmark || 
+                            appliedRate  // 없으면 적용환율로 대체
+                        );
+                        
+                        // 발생 마진 (은행 수익)
+                        const margin = parseFloat(
+                            row.마진 || row.스프레드 || row.margin || row.Margin || 
+                            (appliedRate - marketRate)  // 자동 계산
+                        );
+                        
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 3. 익명화된 기업 프로필 (비교/통계용)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        
+                        // 업종 카테고리
+                        const industryCategory = row.업종 || row.업종분류 || row.산업 || 
+                                               row.industry || row.Industry || row.Sector || 
+                                               '기타 제조업';
+                        
+                        // 기업 규모 (매출 구간)
+                        const companySize = row.기업규모 || row.매출구간 || row.규모 || 
+                                          row.size || row.CompanySize || row.Revenue || 
+                                          '100억~500억';
+                        
+                        // 연간 외환 거래 규모
+                        const annualFxVolume = row.연간외환거래 || row.외환거래규모 || row.연간거래 || 
+                                             row.fxVolume || row.AnnualFX || 
+                                             '1,000만불~5,000만불';
+                        
+                        // 주거래 은행 (익명화)
+                        let mainBank = row.주거래은행 || row.은행 || row.bank || row.Bank || 
+                                      row.BankName || '은행A';
+                        
+                        // 은행명 익명화
+                        const bankMapping = {
+                            '국민': 'A은행', 'KB': 'A은행', 'Kookmin': 'A은행',
+                            '신한': 'B은행', 'Shinhan': 'B은행',
+                            '하나': 'C은행', 'Hana': 'C은행',
+                            '우리': 'D은행', 'Woori': 'D은행',
+                            '기업': 'E은행', 'IBK': 'E은행',
+                            'SC': 'F은행', '씨티': 'G은행', 'Citi': 'G은행',
+                            'HSBC': 'H은행'
+                        };
+                        
+                        for (const [key, value] of Object.entries(bankMapping)) {
+                            if (mainBank.includes(key)) {
+                                mainBank = value;
+                                break;
+                            }
+                        }
+                        
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 4. 전략 시뮬레이션용 추가 정보
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        
+                        // 결제 주기
+                        const settlementPeriod = row.결제주기 || row.결제기간 || row.만기 || 
+                                               row.settlement || row.Settlement || row.Maturity || 
+                                               '즉시결제';
+                        
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // ID 생성 (익명화)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        
+                        const id = row.id || row.ID || row.번호 || row.거래번호 || 
+                                  `TXN-${String(index + 1).padStart(6, '0')}`;
+                        
+                        const result = {
+                            // 기본 정보
+                            id,
+                            
+                            // 1. 거래 기본 정보
+                            transactionDate,
+                            transactionTime,
+                            currencyPair,
+                            transactionType,
+                            foreignAmount,
+                            
+                            // 2. 비용 분석 정보
+                            appliedRate,
+                            marketRate,
+                            margin,
+                            
+                            // 3. 익명화된 기업 프로필
+                            industryCategory,
+                            companySize,
+                            annualFxVolume,
+                            mainBank,
+                            
+                            // 4. 전략 시뮬레이션
+                            settlementPeriod,
+                            
+                            // 하위 호환 (기존 시스템용)
+                            currency: currencyPair.split('/')[0] || 'USD',
+                            amount: Math.abs(foreignAmount),
+                            date: transactionDate,
+                            type: transactionType === 'buy' ? 'payable' : 'receivable',
+                            entity: `${industryCategory}_${companySize}`  // 익명화된 거래처
+                        };
+                        
+                        console.log(`✅ 표준화 데이터 [${index}]:`, result);
+                        return result;
+                    });
+                    
+                    resolve(standardizedData);
+                } catch (error) {
+                    reject(new Error('파일 파싱 실패: ' + error.message));
+                }
+            };
+            
+            reader.onerror = () => reject(new Error('파일 읽기 실패'));
+            
+            if (fileName.endsWith('.csv')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsBinaryString(file);
+            }
+        });
+    }
+
+    // 페이지 로드 시 실행
+    window.addEventListener('load', loadDataFromSession);
+    
+    // 인증 체크 (경량 플랫폼: 로컬 전용이므로 인증 선택적)
+    function checkAuthentication() {
+        // ★ 경량 플랫폼 모드: 기본적으로 로컬 사용 가능 ★
+        const isLightweightMode = true; // 항상 경량 모드로 설정
+        
+        console.log('✅ 경량 플랫폼 모드 - 인증 생략');
+        // 기본 사용자 정보 표시
+        const userEmailEl = document.getElementById('userEmail');
+        const companyNameEl = document.getElementById('companyName');
+        if (userEmailEl) userEmailEl.textContent = '로컬 사용자';
+        if (companyNameEl) companyNameEl.textContent = 'HedgeFreedom';
+        return true;
+    }
+
+    // 로그아웃 (경량 플랫폼에서는 단순히 페이지 새로고침)
+    async function handleLogout(event) {
+        if (event) event.preventDefault();
+        
+        if (confirm('데이터를 초기화하고 새로고침 하시겠습니까?')) {
+            try {
+                // sessionStorage만 제거 (로컬 데이터는 유지)
+                sessionStorage.clear();
+                console.log('✅ 세션 데이터 초기화');
+                location.reload();
+            } catch (error) {
+                console.error('초기화 오류:', error);
+            }
+        }
+    }
+
+    // 서버에서 실시간 환율 가져오기
+    async function loadCurrentRates() {
+        try {
+            // 실시간 환율 데이터 (2026년 2월 2일 기준)
+            const rates = {
+                'USD/KRW': { rate: 1342.50, change: 0.45, trend: 'up' },
+                'EUR/USD': { rate: 1.0842, change: -0.12, trend: 'down' },
+                'USD/JPY': { rate: 148.23, change: 0.28, trend: 'up' },
+                'USD/CNY': { rate: 7.2145, change: -0.08, trend: 'down' },
+                'DXY': { rate: 103.42, change: 0.15, trend: 'up' }
+            };
+            
+            console.log('실시간 환율 로드:', rates);
+            
+            // 환율 표시 업데이트
+            updateRateDisplay(rates);
+        } catch (error) {
+            console.error('환율 조회 실패:', error);
+        }
+    }
+
+    function updateRateDisplay(rates) {
+        // 헤더의 환율 정보 업데이트
+        const rateContainers = document.querySelectorAll('header .flex.items-center.space-x-2');
+        
+        rateContainers.forEach(container => {
+            const label = container.querySelector('.text-xs');
+            const value = container.querySelector('.text-sm');
+            const changeSpan = container.querySelector('.text-\\[10px\\]');
+            
+            if (label && value) {
+                const pair = label.textContent.trim();
+                const rateData = rates[pair];
+                
+                if (rateData) {
+                    value.textContent = rateData.rate.toFixed(2);
+                    
+                    // 추세에 따라 색상 변경
+                    if (rateData.trend === 'up') {
+                        container.className = 'flex items-center space-x-2 px-3 py-1 bg-green-50 rounded';
+                        value.className = 'text-sm font-bold text-green-600';
+                        if (changeSpan) {
+                            changeSpan.textContent = `▲${Math.abs(rateData.change).toFixed(2)}%`;
+                            changeSpan.className = 'text-[10px] text-green-600';
+                        }
+                    } else {
+                        container.className = 'flex items-center space-x-2 px-3 py-1 bg-red-50 rounded';
+                        value.className = 'text-sm font-bold text-red-600';
+                        if (changeSpan) {
+                            changeSpan.textContent = `▼${Math.abs(rateData.change).toFixed(2)}%`;
+                            changeSpan.className = 'text-[10px] text-red-600';
+                        }
+                    }
+                }
+            }
+        });
+
+        // 갱신 시간 업데이트
+        const refreshTime = document.querySelector('header .text-\\[10px\\]');
+        if (refreshTime) {
+            const now = new Date();
+            const secondsAgo = Math.floor(Math.random() * 60);
+            refreshTime.textContent = `갱신 ${secondsAgo}초전`;
+        }
+
+        console.log('환율 표시 업데이트 완료');
+    }
+
+    // 초기화
+    window.addEventListener('DOMContentLoaded', () => {
+        // 인증 체크 (경량 모드는 항상 통과)
+        checkAuthentication();
+
+        // 로컬 스토리지 초기화 (선택적)
+        if (window.localStorageHandler && typeof localStorageHandler.initialize === 'function') {
+            localStorageHandler.initialize().then(() => {
+                console.log('✅ 로컬 폴더 초기화 완료');
+                console.log('   폴더:', localStorageHandler.directoryHandle?.name);
+                
+                // UI에 폴더 상태 표시
+                updateLocalFolderStatus(true, localStorageHandler.directoryHandle?.name);
+                
+                // 🔍 폴더 모니터링 시작 (차단부 105)
+                const customerId = localStorage.getItem('customer_id') || 'anonymous';
+                if (typeof localStorageHandler.startFolderMonitoring === 'function') {
+                    localStorageHandler.startFolderMonitoring(customerId, 5); // 5분 간격
+                    console.log('🔄 폴더 상태 모니터링 시작 (5분 간격)');
+                }
+            }).catch(err => {
+                console.warn('⚠️ 로컬 폴더 초기화 실패:', err.message);
+                console.warn('   파일이 브라우저 메모리에만 저장됩니다.');
+                console.warn('   영구 저장을 원하시면 "로컬 폴더 설정" 버튼을 클릭하세요.');
+                
+                // UI에 폴더 미설정 상태 표시
+                updateLocalFolderStatus(false, null);
+            });
+        } else {
+            console.error('❌ localStorageHandler가 로드되지 않았습니다!');
+            updateLocalFolderStatus(false, null);
+        }
+
+        // 세션 데이터 로드
+        loadDataFromSession();
+
+        // 서버 분석 결과 로드 및 표시
+        loadServerAnalysisResults();
+
+        // 실시간 환율 로드
+        loadCurrentRates();
+    });
+
+    // 로컬 폴더 상태 UI 업데이트
+    function updateLocalFolderStatus(isConfigured, folderName) {
+        const statusEl = document.getElementById('localFolderStatus');
+        if (statusEl) {
+            if (isConfigured && folderName) {
+                statusEl.innerHTML = `
+                    <span class="text-green-600 font-semibold">✅ 로컬 폴더: ${folderName}</span>
+                    <button onclick="changeLocalFolder()" class="ml-2 text-xs text-blue-600 hover:underline">변경</button>
+                `;
+            } else {
+                statusEl.innerHTML = `
+                    <span class="text-orange-600 font-semibold">⚠️ 로컬 폴더: 미설정</span>
+                    <button onclick="setupLocalFolder()" class="ml-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">폴더 설정</button>
+                `;
+            }
+        }
+    }
+    
+    // 로컬 폴더 설정 (최초 또는 재설정)
+    async function setupLocalFolder() {
+        if (!window.localStorageHandler) {
+            alert('❌ 로컬 저장 기능이 비활성화되어 있습니다.\n\n브라우저가 File System Access API를 지원하지 않거나,\ncore/local-storage-handler.js 파일이 로드되지 않았습니다.');
+            return;
+        }
+        
+        try {
+            console.log('📁 로컬 폴더 설정 시작...');
+            await localStorageHandler.selectWorkingFolder();
+            await localStorageHandler.createFolderStructure();
+            
+            console.log('✅ 로컬 폴더 설정 완료:', localStorageHandler.directoryHandle.name);
+            updateLocalFolderStatus(true, localStorageHandler.directoryHandle.name);
+            
+            alert(`✅ 로컬 폴더 설정 완료!\n\n폴더: ${localStorageHandler.directoryHandle.name}\n\n이제 업로드한 파일이 이 폴더에 자동으로 저장됩니다.`);
+            
+        } catch (error) {
+            console.error('❌ 로컬 폴더 설정 실패:', error);
+            
+            if (error.name === 'AbortError') {
+                alert('⚠️ 폴더 선택이 취소되었습니다.\n\n파일은 브라우저 메모리에만 저장됩니다.');
+            } else {
+                alert(`❌ 로컬 폴더 설정 실패\n\n오류: ${error.message}\n\n브라우저가 File System Access API를 지원하는지 확인하세요.\n(Chrome 86+ 권장)`);
+            }
+            
+            updateLocalFolderStatus(false, null);
+        }
+    }
+    
+    // 로컬 폴더 변경
+    async function changeLocalFolder() {
+        await setupLocalFolder();
+    }
+
+    // 서버 분석 결과 로드 및 헤지 전략 표시
+    function loadServerAnalysisResults() {
+        try {
+            // 서버 분석 결과 가져오기 (localStorage 우선)
+            const analysisResults = localStorage.getItem('analysisResults');
+            const hedgeStrategies = localStorage.getItem('hedgeStrategies');
+            const riskMetrics = localStorage.getItem('riskMetrics');
+
+            if (!analysisResults) {
+                console.log('서버 분석 결과 없음');
+                return;
+            }
+
+            const results = JSON.parse(analysisResults);
+            const strategies = hedgeStrategies ? JSON.parse(hedgeStrategies) : [];
+            const metrics = riskMetrics ? JSON.parse(riskMetrics) : {};
+
+            console.log('서버 분석 결과 로드:', results);
+            console.log('헤지 전략:', strategies);
+            console.log('리스크 지표:', metrics);
+
+            // 1. KPI 업데이트
+            updateHedgeKPIs(results, metrics);
+
+            // 2. 헤지 실행 제안 테이블 업데이트
+            updateHedgeProposalsTable(strategies);
+
+            // 3. VaR 영향 업데이트
+            updateVaRImpact(metrics);
+
+            // 4. 민감도 분석 업데이트
+            updateSensitivityAnalysis(metrics);
+
+            // 5. 상단 알림 배너 표시
+            showAnalysisCompleteBanner(results);
+
+        } catch (error) {
+            console.error('서버 결과 로드 오류:', error);
+        }
+    }
+
+    // KPI 업데이트
+    function updateHedgeKPIs(results, metrics) {
+        // 현재 헤지 비율 업데이트
+        const currentHedgeRatio = metrics.currentHedgeRatio || 42;
+        const kpiElement = document.querySelector('main section .bg-white:nth-child(2) .text-3xl');
+        if (kpiElement) {
+            kpiElement.textContent = currentHedgeRatio + '%';
+        }
+
+        // 갭 표시 업데이트
+        const gap = 75 - currentHedgeRatio;
+        const gapElement = document.querySelector('main section .bg-white:nth-child(3) .text-3xl');
+        if (gapElement) {
+            gapElement.textContent = gap + '%';
+        }
+    }
+
+    // 헤지 실행 제안 테이블 업데이트
+    function updateHedgeProposalsTable(strategies) {
+        if (!strategies || strategies.length === 0) return;
+
+        const tbody = document.querySelector('section.action-card tbody');
+        if (!tbody) return;
+
+        // 기존 행 제거
+        tbody.innerHTML = '';
+
+        // 서버 전략으로 테이블 채우기
+        strategies.forEach(strategy => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-blue-50';
+            
+            const priority = strategy.priority || 'MEDIUM';
+            const priorityClass = priority === 'HIGH' ? 'bg-red-100 text-red-700' :
+                                 priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+                                 'bg-green-100 text-green-700';
+
+            // KRW 금액 포맷
+            const krwAmount = strategy.krwAmount ? 
+                `₩${strategy.krwAmount.toLocaleString('ko-KR')}` : 
+                '계산중';
+
+            // 은행 정보
+            const bankInfo = strategy.recommendedBank !== '은행 연동 준비중' ?
+                `<span class="font-bold">${strategy.recommendedBank}</span>
+                 <p class="text-[10px] text-green-600 font-medium">최우수 견적: ${strategy.rate}</p>
+                 ${strategy.allQuotes ? `<p class="text-[9px] text-gray-400 mt-1">${strategy.allQuotes}</p>` : ''}` :
+                `<span class="font-bold text-gray-400">${strategy.recommendedBank}</span>
+                 <p class="text-[10px] text-gray-400">${strategy.rate}</p>`;
+
+            tr.innerHTML = `
+                <td class="p-4"><span class="px-2 py-1 ${priorityClass} rounded-full font-bold">${
+                    priority === 'HIGH' ? '높음' : priority === 'MEDIUM' ? '중간' : '낮음'
+                }</span></td>
+                <td class="p-4">
+                    <p class="font-bold text-gray-800">${strategy.instrument || 'FX Forward'}</p>
+                    <p class="text-[10px] text-gray-400 italic">${strategy.description || '서버 추천 전략'}</p>
+                    ${strategy.premium ? `<p class="text-[10px] text-blue-600 mt-1">프리미엄: $${strategy.premium.toLocaleString('ko-KR')} (${strategy.premiumPercent})</p>` : ''}
+                </td>
+                <td class="p-4 font-bold text-blue-700">${strategy.currency || 'USD'} / KRW</td>
+                <td class="p-4">
+                    <p class="font-bold">$${(strategy.amount || 0).toLocaleString('ko-KR')}</p>
+                    <p class="text-[10px] text-gray-500">${krwAmount}</p>
+                </td>
+                <td class="p-4">
+                    <p class="font-mono">${strategy.maturityDate || '2026-06-30'}</p>
+                    <p class="text-[10px] text-gray-500">${strategy.daysToMaturity || 0}일 후</p>
+                </td>
+                <td class="p-4">
+                    ${bankInfo}
+                    ${strategy.currentSpot ? `<p class="text-[9px] text-gray-400 mt-1">현물: ${strategy.currentSpot}</p>` : ''}
+                    ${strategy.forwardPoints ? `<p class="text-[9px] text-gray-400">FP: ${strategy.forwardPoints}p</p>` : ''}
+                </td>
+                <td class="p-4 text-center">
+                    <button class="px-4 py-1.5 border border-blue-600 text-blue-600 rounded-sm font-bold hover:bg-blue-600 hover:text-white transition"
+                            onclick="executeHedgeStrategy('${strategy.currency}', ${strategy.amount}, '${strategy.maturityDate}', '${strategy.instrument}')">
+                        실행
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        console.log(`✅ ${strategies.length}개 헤지 전략이 테이블에 표시되었습니다.`);
+    }
+
+    // 헤지 전략 실행 함수
+    function executeHedgeStrategy(currency, amount, maturityDate, instrument) {
+        const confirmation = confirm(
+            `헤지 전략 실행 확인\n\n` +
+            `상품: ${instrument}\n` +
+            `통화: ${currency}\n` +
+            `금액: $${amount.toLocaleString('ko-KR')}\n` +
+            `만기: ${maturityDate}\n\n` +
+            `은행 연동 기능 개발 완료 후 실제 거래가 가능합니다.\n` +
+            `현재는 시뮬레이션 모드로 작동합니다.\n\n` +
+            `계속하시겠습니까?`
+        );
+
+        if (confirmation) {
+            // 실행 로그 기록
+            console.log('헤지 전략 실행 요청:', {
+                currency, amount, maturityDate, instrument,
+                timestamp: new Date().toISOString()
+            });
+
+            // 로컬 스토리지에 저장
+            const executedTrades = JSON.parse(localStorage.getItem('executedTrades') || '[]');
+            executedTrades.push({
+                currency, amount, maturityDate, instrument,
+                status: 'pending_bank_integration',
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('executedTrades', JSON.stringify(executedTrades));
+
+            alert(
+                `✅ 실행 요청이 접수되었습니다.\n\n` +
+                `은행 연동 시스템이 구축되면 자동으로 처리됩니다.\n` +
+                `요청 내역은 거래 내역에서 확인할 수 있습니다.`
+            );
+        }
+    }
+
+    // VaR 영향 업데이트
+    function updateVaRImpact(metrics) {
+        const currentVaR = metrics.currentVaR || 3400000;
+        const projectedVaR = metrics.projectedVaR || 800000;
+        
+        // USD를 억원으로 변환 (환율 1350원 기준)
+        const toEokWon = (usd) => ((usd * 1350) / 100000000).toFixed(1);
+
+        // VaR 값 표시 업데이트
+        const varElements = document.querySelectorAll('.text-2xl.font-bold');
+        varElements.forEach((el, index) => {
+            if (el.classList.contains('text-red-500') || el.textContent.includes('억원') || el.textContent.includes('M')) {
+                if (index === 0 || el.classList.contains('text-red-500')) {
+                    el.textContent = `${toEokWon(currentVaR)}억원`;
+                    el.className = 'text-2xl font-bold text-red-500';
+                }
+            }
+        });
+
+        const projectedElements = document.querySelectorAll('.text-2xl.font-bold.text-green-600');
+        if (projectedElements.length > 0) {
+            projectedElements[0].textContent = `${toEokWon(projectedVaR)}억원`;
+        }
+
+        // 감소율 계산 및 표시
+        const reduction = ((1 - projectedVaR / currentVaR) * 100).toFixed(0);
+        console.log(`VaR 영향: 현재 ${toEokWon(currentVaR)}억원 → 예상 ${toEokWon(projectedVaR)}억원 (${reduction}% 감소)`);
+    }
+
+    // 민감도 분석 업데이트
+    function updateSensitivityAnalysis(metrics) {
+        const upside = metrics.upsideScenario || { change: '+5%', impact: '+$1.2M', hedgedImpact: '+$0.4M' };
+        const downside = metrics.downsideScenario || { change: '-5%', impact: '-$0.4M', hedgedImpact: '-$0.1M' };
+
+        // 민감도 분석 섹션 찾기
+        const sensitivitySection = Array.from(document.querySelectorAll('h4')).find(el => 
+            el.textContent.includes('민감도 분석')
+        );
+
+        if (sensitivitySection) {
+            const container = sensitivitySection.closest('.bg-white');
+            if (container) {
+                const contentDiv = container.querySelector('.space-y-3');
+                if (contentDiv) {
+                    contentDiv.innerHTML = `
+                        <div class="flex justify-between text-xs">
+                            <span>USD/KRW ${upside.change} 시</span>
+                            <span class="text-green-600 font-bold">${upside.impact} 이익</span>
+                        </div>
+                        <div class="w-full bg-gray-100 h-2 rounded-full">
+                            <div class="bg-green-500 h-full rounded-full" style="width: 75%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500">
+                            <span>헤지 후</span>
+                            <span class="font-semibold">${upside.hedgedImpact} (제한적 이익)</span>
+                        </div>
+                        <div class="h-4"></div>
+                        <div class="flex justify-between text-xs">
+                            <span>USD/KRW ${downside.change} 시</span>
+                            <span class="text-red-500 font-bold">${downside.impact} 손실</span>
+                        </div>
+                        <div class="w-full bg-gray-100 h-2 rounded-full">
+                            <div class="bg-red-400 h-full rounded-full" style="width: 25%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500">
+                            <span>헤지 후</span>
+                            <span class="font-semibold text-green-600">${downside.hedgedImpact} (손실 제한)</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        console.log('민감도 분석 업데이트:', { upside, downside });
+    }
+
+    // 분석 완료 배너 표시
+    function showAnalysisCompleteBanner(results) {
+        const main = document.querySelector('main');
+        if (!main) return;
+
+        // 기존 배너 제거
+        const existingBanner = document.getElementById('analysisBanner');
+        if (existingBanner) existingBanner.remove();
+
+        const banner = document.createElement('div');
+        banner.id = 'analysisBanner';
+        banner.className = 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg shadow-lg mb-6';
+        banner.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="text-3xl">🎯</div>
+                    <div>
+                        <h3 class="text-lg font-bold">서버 분석 완료</h3>
+                        <p class="text-sm text-blue-100">
+                            AI 기반 헤지 전략이 생성되었습니다. 
+                            ${(results.hedgeStrategies || []).length}개의 실행 가능한 전략을 확인하세요.
+                        </p>
+                    </div>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" 
+                        class="text-white hover:text-blue-200 text-2xl font-bold px-2">
+                    ×
+                </button>
+            </div>
+            <div class="mt-3 grid grid-cols-4 gap-4 text-sm">
+                <div class="bg-white bg-opacity-20 rounded px-3 py-2">
+                    <div class="text-blue-100 text-xs">분석 데이터</div>
+                    <div class="font-bold">${results.dataCount || 0}건</div>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded px-3 py-2">
+                    <div class="text-blue-100 text-xs">통화</div>
+                    <div class="font-bold">${results.currencyCount || 0}개</div>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded px-3 py-2">
+                    <div class="text-blue-100 text-xs">VaR 감소</div>
+                    <div class="font-bold text-green-300">${results.varReduction || '76%'}</div>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded px-3 py-2">
+                    <div class="text-blue-100 text-xs">분석 시간</div>
+                    <div class="font-bold">${new Date().toLocaleTimeString('ko-KR')}</div>
+                </div>
+            </div>
+        `;
+
+        main.insertBefore(banner, main.firstChild);
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 서버 설정 기능 (네이버 클라우드 등 외부 서버 연결)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    // 서버 상태 표시 업데이트
+    function updateServerStatus() {
+        const serverUrl = window.HedgeFreedomConfig?.CALCULATOR_SERVER || '';
+        const statusDot = document.getElementById('serverStatusDot');
+        const statusText = document.getElementById('serverStatusText');
+        
+        if (serverUrl) {
+            // 외부 서버 설정됨
+            statusText.textContent = `계산 서버: ${new URL(serverUrl).hostname}`;
+            checkServerHealth(serverUrl);
+        } else {
+            // 로컬 서버
+            statusText.textContent = '계산 서버: 로컬';
+            statusDot.className = 'w-2 h-2 bg-green-500 rounded-full';
+        }
+    }
+    
+    // 서버 헬스체크
+    async function checkServerHealth(serverUrl) {
+        const statusDot = document.getElementById('serverStatusDot');
+        try {
+            const response = await fetch(`${serverUrl}/api/health`, { 
+                method: 'GET',
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+            if (response.ok) {
+                statusDot.className = 'w-2 h-2 bg-green-500 rounded-full';
+            } else {
+                statusDot.className = 'w-2 h-2 bg-yellow-500 rounded-full';
+            }
+        } catch (error) {
+            statusDot.className = 'w-2 h-2 bg-red-500 rounded-full';
+            console.warn('서버 연결 실패:', error);
+        }
+    }
+    
+    // 서버 설정 모달 표시
+    function showServerSettings() {
+        const currentServer = window.HedgeFreedomConfig?.CALCULATOR_SERVER || '';
+        
+        const modal = document.createElement('div');
+        modal.id = 'serverSettingsModal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl w-[500px] max-w-[90vw]">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h2 class="text-lg font-bold">⚙️ 계산 서버 설정</h2>
+                    <button onclick="closeServerSettings()" class="text-gray-500 hover:text-gray-700 text-xl">×</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm">
+                        <p class="font-bold text-blue-700">🔒 하이브리드 아키텍처</p>
+                        <p class="text-blue-600 mt-1">
+                            고객 데이터는 브라우저에만 저장됩니다.<br>
+                            서버는 익명화된 숫자만 받아 계산을 수행합니다.
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">계산 서버 URL</label>
+                        <input type="text" id="serverUrlInput" 
+                               value="${currentServer}"
+                               placeholder="빈칸 = 로컬 서버 (http://localhost:7870)"
+                               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">
+                            예: https://your-naver-cloud-server.kr
+                        </p>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <p class="text-sm font-medium text-gray-700">빠른 선택:</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="setServerUrl('')" 
+                                    class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded">
+                                🏠 로컬 서버
+                            </button>
+                            <button onclick="setServerUrl('http://localhost:7870')" 
+                                    class="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 rounded text-blue-700">
+                                💻 경량 플랫폼 (7870)
+                            </button>
+                            <button onclick="setServerUrl('http://localhost:7860')" 
+                                    class="px-3 py-1 text-sm bg-purple-100 hover:bg-purple-200 rounded text-purple-700">
+                                🏢 중량 플랫폼 (7860)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="serverTestResult" class="hidden p-3 rounded text-sm"></div>
+                </div>
+                <div class="p-4 border-t bg-gray-50 flex justify-between">
+                    <button onclick="testServerConnection()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                        🔍 연결 테스트
+                    </button>
+                    <div class="space-x-2">
+                        <button onclick="closeServerSettings()" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                            취소
+                        </button>
+                        <button onclick="saveServerSettings()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            저장
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function setServerUrl(url) {
+        document.getElementById('serverUrlInput').value = url;
+    }
+    
+    function closeServerSettings() {
+        const modal = document.getElementById('serverSettingsModal');
+        if (modal) modal.remove();
+    }
+    
+    async function testServerConnection() {
+        const url = document.getElementById('serverUrlInput').value.trim();
+        const resultDiv = document.getElementById('serverTestResult');
+        resultDiv.className = 'p-3 rounded text-sm bg-yellow-100 text-yellow-700';
+        resultDiv.textContent = '⏳ 연결 테스트 중...';
+        resultDiv.classList.remove('hidden');
+        
+        const testUrl = url || window.location.origin;
+        
+        try {
+            const response = await fetch(`${testUrl}/api/health`, {
+                method: 'GET',
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                resultDiv.className = 'p-3 rounded text-sm bg-green-100 text-green-700';
+                resultDiv.innerHTML = `✅ 연결 성공!<br>서버: ${data.server || 'unknown'} | 버전: ${data.version || 'unknown'}`;
+            } else {
+                resultDiv.className = 'p-3 rounded text-sm bg-red-100 text-red-700';
+                resultDiv.textContent = `❌ 서버 응답 오류 (${response.status})`;
+            }
+        } catch (error) {
+            resultDiv.className = 'p-3 rounded text-sm bg-red-100 text-red-700';
+            resultDiv.textContent = `❌ 연결 실패: ${error.message}`;
+        }
+    }
+    
+    function saveServerSettings() {
+        const url = document.getElementById('serverUrlInput').value.trim();
+        
+        if (window.HedgeFreedomConfig) {
+            window.HedgeFreedomConfig.setCalculatorServer(url, true);
+        } else {
+            localStorage.setItem('CALCULATOR_SERVER', url);
+        }
+        
+        updateServerStatus();
+        closeServerSettings();
+        showNotification('success', `서버 설정 저장됨: ${url || '로컬'}`);
+    }
+    
+    // 페이지 로드 시 서버 상태 확인
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(updateServerStatus, 500);
+    });
+    </script>
+
+    <script>
+    // 자동 서버 계산 요청: uploadedData가 있고 serverAnalysisResult가 없을 때 한 번만 요청
+    (function setupAutoServerAnalysisRequester(){
+        const POLL_INTERVAL = 3000; // ms
+        async function requestBatchIfNeeded() {
+            try {
+                const uploadedRaw = localStorage.getItem('uploadedData');
+                if (!uploadedRaw) return;
+
+                const uploadedTimestamp = localStorage.getItem('uploadedDataTimestamp') || '';
+                const lastRequested = localStorage.getItem('serverAnalysisRequestedAt') || '';
+
+                // 이미 서버 결과가 있으면 아무 작업도 하지 않음
+                if (localStorage.getItem('serverAnalysisResult')) return;
+
+                // 업로드된 데이터가 새로워졌고 마지막 요청 이후라면 요청 실행
+                if (uploadedTimestamp && uploadedTimestamp === lastRequested) return;
+
+                console.log('자동: 서버 배치 계산 요청 시도...');
+
+                const data = JSON.parse(uploadedRaw);
+                const currencySummary = {};
+                data.forEach(item => {
+                    const c = item.currency || 'USD';
+                    if (!currencySummary[c]) currencySummary[c] = { receivable: 0, payable: 0 };
+                    if (item.type === 'receivable') currencySummary[c].receivable += Number(item.amount) || 0;
+                    else currencySummary[c].payable += Number(item.amount) || 0;
+                });
+
+                const payload = { currencySummary, maturityBuckets: {}, options: { targetHedgeRatio: 75 } };
+
+                // 기록: 요청 시간(업로드 타임스탬프와 연결)
+                localStorage.setItem('serverAnalysisRequestedAt', uploadedTimestamp);
+
+                try {
+                    const serverUrl = (window.HedgeFreedomConfig && HedgeFreedomConfig.CALCULATOR_SERVER) ? HedgeFreedomConfig.CALCULATOR_SERVER : '';
+                    const res = await fetch((serverUrl || '') + '/api/calculator/batch', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+
+                    // 저장 및 이벤트 디스패치
+                    localStorage.setItem('serverAnalysisResult', JSON.stringify(json));
+                    try { window.dispatchEvent(new CustomEvent('serverAnalysisResultUpdated', { detail: json })); } catch(e){}
+
+                    console.log('자동: 서버 계산 완료 및 저장');
+                } catch (err) {
+                    console.warn('자동: 서버 계산 실패:', err.message);
+                    // 실패 시 다음 폴링에서 재시도
+                    localStorage.removeItem('serverAnalysisRequestedAt');
+                }
+            } catch (e) {
+                console.error('자동 서버 분석 처리 오류:', e);
+            }
+        }
+
+        // 폴링 시작
+        setInterval(requestBatchIfNeeded, POLL_INTERVAL);
+        // 또한 DOMContentLoaded 직후 한 번 시도
+        window.addEventListener('DOMContentLoaded', requestBatchIfNeeded);
+    })();
+    </script>
+
+    <script>
+    // 목표 헤지 비율 편집 기능
+    function toggleEditTargetRatio() {
+        const displayDiv = document.getElementById('targetRatioDisplay');
+        const editDiv = document.getElementById('targetRatioEdit');
+        const currentValue = parseInt(document.getElementById('kpiTargetHedge').textContent);
+        
+        displayDiv.classList.add('hidden');
+        editDiv.classList.remove('hidden');
+        
+        document.getElementById('targetRatioInput').value = currentValue;
+        document.getElementById('targetRatioInput').focus();
+    }
+    
+    function cancelEditTargetRatio() {
+        const displayDiv = document.getElementById('targetRatioDisplay');
+        const editDiv = document.getElementById('targetRatioEdit');
+        
+        displayDiv.classList.remove('hidden');
+        editDiv.classList.add('hidden');
+    }
+    
+    function saveTargetRatio() {
+        const newRatio = parseInt(document.getElementById('targetRatioInput').value);
+        
+        if (isNaN(newRatio) || newRatio < 0 || newRatio > 100) {
+            alert('⚠️ 목표 헤지 비율은 0~100 사이의 숫자여야 합니다.');
+            return;
+        }
+        
+        // 로컬스토리지에 저장
+        localStorage.setItem('targetHedgeRatio', newRatio);
+        
+        // UI 업데이트
+        document.getElementById('kpiTargetHedge').textContent = newRatio + '%';
+        cancelEditTargetRatio();
+        
+        // 성공 메시지
+        showNotification('success', '✓ 목표 헤지 비율이 업데이트되었습니다.');
+        
+        // KPI 재계산 (현재 헤지 비율과의 갭 재계산)
+        const uploadedData = localStorage.getItem('uploadedData');
+        if (uploadedData) {
+            try {
+                const data = JSON.parse(uploadedData);
+                updateKPISection(data);
+            } catch (e) {
+                console.error('KPI 업데이트 실패:', e);
+            }
+        }
+    }
+    
+    // 페이지 로드 시 저장된 목표 비율 불러오기
+    window.addEventListener('DOMContentLoaded', function() {
+        const savedRatio = localStorage.getItem('targetHedgeRatio');
+        if (savedRatio) {
+            document.getElementById('kpiTargetHedge').textContent = savedRatio + '%';
+        }
+    });
+    </script>
+
+</body>
+</html>

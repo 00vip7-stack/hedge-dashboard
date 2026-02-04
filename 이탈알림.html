@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>HEDGEFREEDOM - 이탈 알림</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .alert-critical { background: linear-gradient(135deg, #fee 0%, #fdd 100%); border-left: 4px solid #dc2626; }
+        .alert-warning { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; }
+        .alert-info { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-left: 4px solid #3b82f6; }
+        .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 헤더 -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">🔔 이탈 알림</h1>
+                <p class="text-sm text-gray-600 mt-1">실시간 위험 감지 및 알림 관리</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="refreshBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    새로고침
+                </button>
+                <button id="settingsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                    ⚙️ 설정
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- 요약 카드 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">긴급 알림</p>
+                        <p id="criticalCount" class="text-3xl font-bold text-red-600 mt-2">-</p>
+                    </div>
+                    <div class="text-4xl">🚨</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">경고 알림</p>
+                        <p id="warningCount" class="text-3xl font-bold text-yellow-600 mt-2">-</p>
+                    </div>
+                    <div class="text-4xl">⚠️</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+                <div>
+                    <p class="text-sm text-gray-600">정보 알림</p>
+                    <p id="infoCount" class="text-3xl font-bold text-blue-600 mt-2">-</p>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+                <div>
+                    <p class="text-sm text-gray-600">마지막 업데이트</p>
+                    <p id="lastUpdate" class="text-sm font-medium text-gray-900 mt-2">-</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 필터 및 검색 -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div class="flex flex-wrap gap-4 items-center">
+                <div class="flex gap-2">
+                    <button class="filter-btn active px-4 py-2 rounded-lg bg-gray-900 text-white" data-filter="all">
+                        전체
+                    </button>
+                    <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="critical">
+                        긴급
+                    </button>
+                    <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="warning">
+                        경고
+                    </button>
+                    <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="info">
+                        정보
+                    </button>
+                </div>
+                
+                <div class="flex-1 min-w-[200px]">
+                    <input type="text" id="searchInput" placeholder="알림 검색..." 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+        </div>
+
+        <!-- 알림 목록 -->
+        <div id="alertsList" class="space-y-4">
+            <!-- 로딩 상태 -->
+            <div class="bg-white rounded-xl shadow-sm p-12 text-center">
+                <div class="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p class="text-gray-600">알림을 불러오는 중...</p>
+            </div>
+        </div>
+
+        <!-- 알림이 없을 때 -->
+        <div id="noAlerts" class="hidden bg-white rounded-xl shadow-sm p-12 text-center">
+            <div class="text-6xl mb-4">✅</div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">현재 알림이 없습니다</h3>
+            <p class="text-gray-600">모든 지표가 정상 범위 내에 있습니다.</p>
+        </div>
+    </main>
+
+    <!-- 알림 설정 모달 -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900">⚙️ 알림 설정</h2>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                </div>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <!-- 환율 임계값 -->
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-4">📈 환율 임계값</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-700 mb-2">USD/KRW 상한</label>
+                            <input type="number" id="usdUpperLimit" class="w-full px-4 py-2 border rounded-lg" placeholder="1400">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-700 mb-2">USD/KRW 하한</label>
+                            <input type="number" id="usdLowerLimit" class="w-full px-4 py-2 border rounded-lg" placeholder="1300">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 헤지 비율 -->
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-4">🎯 헤지 비율</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-700 mb-2">최소 비율 (%)</label>
+                            <input type="number" id="hedgeMin" class="w-full px-4 py-2 border rounded-lg" placeholder="60">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-700 mb-2">최대 비율 (%)</label>
+                            <input type="number" id="hedgeMax" class="w-full px-4 py-2 border rounded-lg" placeholder="80">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 알림 수신 방법 -->
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-4">📱 알림 수신 방법</h3>
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="emailAlert" class="w-5 h-5 text-blue-600 rounded">
+                            <span class="text-gray-700">이메일</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="smsAlert" class="w-5 h-5 text-blue-600 rounded">
+                            <span class="text-gray-700">SMS</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="kakaoAlert" class="w-5 h-5 text-blue-600 rounded">
+                            <span class="text-gray-700">카카오톡</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 저장 버튼 -->
+                <div class="pt-4">
+                    <button id="saveSettings" class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                        설정 저장
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // 템플릿 기반 데이터 렌더링 시스템
+        // ============================================
+
+        const API_BASE = window.location.origin;
+        let currentFilter = 'all';
+        let allAlerts = [];
+
+        // 페이지 로드 시 데이터 가져오기
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAlerts();
+            setupEventListeners();
+        });
+
+        // 알림 데이터 로드 (서버에서)
+        async function loadAlerts() {
+            try {
+                const response = await fetch(`${API_BASE}/api/alerts`);
+                const data = await response.json();
+                
+                allAlerts = data.alerts || [];
+                renderAlerts(allAlerts);
+                updateSummary(data.summary || {});
+                
+            } catch (error) {
+                console.error('알림 로드 실패:', error);
+                showError('알림을 불러올 수 없습니다. 서버를 확인해주세요.');
+            }
+        }
+
+        // 알림 렌더링
+        function renderAlerts(alerts) {
+            const container = document.getElementById('alertsList');
+            const noAlertsDiv = document.getElementById('noAlerts');
+            
+            if (!alerts || alerts.length === 0) {
+                container.classList.add('hidden');
+                noAlertsDiv.classList.remove('hidden');
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            noAlertsDiv.classList.add('hidden');
+            
+            // 필터 적용
+            const filtered = alerts.filter(alert => {
+                if (currentFilter !== 'all' && alert.severity !== currentFilter) return false;
+                
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                if (searchTerm && !alert.message.toLowerCase().includes(searchTerm)) return false;
+                
+                return true;
+            });
+            
+            container.innerHTML = filtered.map(alert => createAlertCard(alert)).join('');
+        }
+
+        // 알림 카드 생성 (템플릿)
+        function createAlertCard(alert) {
+            const severityClass = {
+                'critical': 'alert-critical',
+                'warning': 'alert-warning',
+                'info': 'alert-info'
+            }[alert.severity] || 'alert-info';
+            
+            const icon = {
+                'critical': '🚨',
+                'warning': '⚠️',
+                'info': 'ℹ️'
+            }[alert.severity] || 'ℹ️';
+            
+            const severityText = {
+                'critical': '긴급',
+                'warning': '경고',
+                'info': '정보'
+            }[alert.severity] || '정보';
+            
+            return `
+                <div class="${severityClass} rounded-xl shadow-sm p-6 transition hover:shadow-md">
+                    <div class="flex items-start gap-4">
+                        <div class="text-3xl">${icon}</div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="px-3 py-1 bg-white rounded-full text-sm font-medium">${severityText}</span>
+                                <span class="text-sm text-gray-600">${alert.category || '일반'}</span>
+                                ${alert.isNew ? '<span class="pulse-dot w-2 h-2 bg-red-500 rounded-full"></span>' : ''}
+                            </div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-2">${alert.title}</h3>
+                            <p class="text-gray-700 mb-3">${alert.message}</p>
+                            ${alert.recommendation ? `
+                                <div class="bg-white bg-opacity-50 rounded-lg p-3 mb-3">
+                                    <p class="text-sm font-medium text-gray-900">💡 권장사항</p>
+                                    <p class="text-sm text-gray-700 mt-1">${alert.recommendation}</p>
+                                </div>
+                            ` : ''}
+                            <div class="flex items-center justify-between mt-4">
+                                <span class="text-sm text-gray-600">
+                                    🕐 ${formatTime(alert.timestamp)}
+                                </span>
+                                <button onclick="dismissAlert('${alert.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                    확인 완료
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 요약 정보 업데이트
+        function updateSummary(summary) {
+            document.getElementById('criticalCount').textContent = summary.critical || 0;
+            document.getElementById('warningCount').textContent = summary.warning || 0;
+            document.getElementById('infoCount').textContent = summary.info || 0;
+            document.getElementById('lastUpdate').textContent = formatTime(new Date());
+        }
+
+        // 이벤트 리스너 설정
+        function setupEventListeners() {
+            // 새로고침
+            document.getElementById('refreshBtn').addEventListener('click', loadAlerts);
+            
+            // 필터 버튼
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.classList.remove('active', 'bg-gray-900', 'text-white');
+                        b.classList.add('bg-gray-100', 'text-gray-700');
+                    });
+                    e.target.classList.add('active', 'bg-gray-900', 'text-white');
+                    e.target.classList.remove('bg-gray-100', 'text-gray-700');
+                    
+                    currentFilter = e.target.dataset.filter;
+                    renderAlerts(allAlerts);
+                });
+            });
+            
+            // 검색
+            document.getElementById('searchInput').addEventListener('input', () => {
+                renderAlerts(allAlerts);
+            });
+            
+            // 설정 모달
+            document.getElementById('settingsBtn').addEventListener('click', () => {
+                document.getElementById('settingsModal').classList.remove('hidden');
+                loadSettings();
+            });
+            
+            document.getElementById('closeModal').addEventListener('click', () => {
+                document.getElementById('settingsModal').classList.add('hidden');
+            });
+            
+            document.getElementById('saveSettings').addEventListener('click', saveSettings);
+        }
+
+        // 알림 확인 처리
+        async function dismissAlert(alertId) {
+            try {
+                await fetch(`${API_BASE}/api/alerts/${alertId}/dismiss`, { method: 'POST' });
+                await loadAlerts();
+            } catch (error) {
+                console.error('알림 확인 실패:', error);
+            }
+        }
+
+        // 설정 로드
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${API_BASE}/api/alerts/settings`);
+                const settings = await response.json();
+                
+                document.getElementById('usdUpperLimit').value = settings.usdUpperLimit || '';
+                document.getElementById('usdLowerLimit').value = settings.usdLowerLimit || '';
+                document.getElementById('hedgeMin').value = settings.hedgeMin || '';
+                document.getElementById('hedgeMax').value = settings.hedgeMax || '';
+                document.getElementById('emailAlert').checked = settings.emailAlert || false;
+                document.getElementById('smsAlert').checked = settings.smsAlert || false;
+                document.getElementById('kakaoAlert').checked = settings.kakaoAlert || false;
+                
+            } catch (error) {
+                console.error('설정 로드 실패:', error);
+            }
+        }
+
+        // 설정 저장
+        async function saveSettings() {
+            const settings = {
+                usdUpperLimit: parseFloat(document.getElementById('usdUpperLimit').value),
+                usdLowerLimit: parseFloat(document.getElementById('usdLowerLimit').value),
+                hedgeMin: parseFloat(document.getElementById('hedgeMin').value),
+                hedgeMax: parseFloat(document.getElementById('hedgeMax').value),
+                emailAlert: document.getElementById('emailAlert').checked,
+                smsAlert: document.getElementById('smsAlert').checked,
+                kakaoAlert: document.getElementById('kakaoAlert').checked
+            };
+            
+            try {
+                await fetch(`${API_BASE}/api/alerts/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                alert('설정이 저장되었습니다.');
+                document.getElementById('settingsModal').classList.add('hidden');
+                
+            } catch (error) {
+                console.error('설정 저장 실패:', error);
+                alert('설정 저장에 실패했습니다.');
+            }
+        }
+
+        // 유틸리티 함수
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMinutes = Math.floor((now - date) / 60000);
+            
+            if (diffMinutes < 1) return '방금 전';
+            if (diffMinutes < 60) return `${diffMinutes}분 전`;
+            if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}시간 전`;
+            
+            return date.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function showError(message) {
+            const container = document.getElementById('alertsList');
+            container.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+                    <div class="text-5xl mb-4">⚠️</div>
+                    <h3 class="text-xl font-bold text-red-900 mb-2">오류 발생</h3>
+                    <p class="text-red-700">${message}</p>
+                    <button onclick="loadAlerts()" class="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        다시 시도
+                    </button>
+                </div>
+            `;
+        }
+
+        // 자동 새로고침 (30초마다)
+        setInterval(() => {
+            loadAlerts();
+        }, 30000);
+        
+        // 푸터 정보
+        console.log('HEDGEFREEDOM - powered by hedgeOn Engine | www.hedgefreedom.com');
+    </script>
+</body>
+</html>

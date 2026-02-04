@@ -1,0 +1,227 @@
+{
+  "timestamp": "2026-02-04T01:38:30.838Z",
+  "maskedPositions": [
+    {
+      "id": "Inte***.",
+      "counterparty": "I***d.",
+      "currency": "JPY",
+      "amount": 48083905,
+      "settlementDate": "2026-08-02",
+      "type": "수출",
+      "krwAmount": 456797097.5,
+      "daysUntil": 179,
+      "hedgeStatus": "전액헤지"
+    },
+    {
+      "id": "글로벌상***사",
+      "counterparty": "글***상사",
+      "currency": "JPY",
+      "amount": 20167155,
+      "settlementDate": "2026-05-06",
+      "type": "수출",
+      "krwAmount": 191587972.5,
+      "daysUntil": 91,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "Paci***.",
+      "counterparty": "P***c.",
+      "currency": "CNY",
+      "amount": 189620,
+      "settlementDate": "2026-02-18",
+      "type": "수출",
+      "krwAmount": 35079700,
+      "daysUntil": 14,
+      "hedgeStatus": "부분헤지"
+    },
+    {
+      "id": "Inte***.",
+      "counterparty": "I***d.",
+      "currency": "CNY",
+      "amount": 409558,
+      "settlementDate": "2026-05-30",
+      "type": "수입",
+      "krwAmount": 75768230,
+      "daysUntil": 115,
+      "hedgeStatus": "부분헤지"
+    },
+    {
+      "id": "아시아무***역",
+      "counterparty": "아***무역",
+      "currency": "JPY",
+      "amount": 29372341,
+      "settlementDate": "2026-06-07",
+      "type": "수입",
+      "krwAmount": 279037239.5,
+      "daysUntil": 123,
+      "hedgeStatus": "전액헤지"
+    },
+    {
+      "id": "Paci***.",
+      "counterparty": "P***c.",
+      "currency": "EUR",
+      "amount": 198583,
+      "settlementDate": "2026-04-01",
+      "type": "수출",
+      "krwAmount": 287945350,
+      "daysUntil": 56,
+      "hedgeStatus": "전액헤지"
+    },
+    {
+      "id": "대한수출***입",
+      "counterparty": "대***출입",
+      "currency": "USD",
+      "amount": 128667,
+      "settlementDate": "2026-06-19",
+      "type": "수입",
+      "krwAmount": 173700450,
+      "daysUntil": 135,
+      "hedgeStatus": "부분헤지"
+    },
+    {
+      "id": "동양상***사",
+      "counterparty": "동***상사",
+      "currency": "CNY",
+      "amount": 497137,
+      "settlementDate": "2026-06-10",
+      "type": "수출",
+      "krwAmount": 91970345,
+      "daysUntil": 126,
+      "hedgeStatus": "전액헤지"
+    },
+    {
+      "id": "XYZ ***n",
+      "counterparty": "X***on",
+      "currency": "JPY",
+      "amount": 1064478,
+      "settlementDate": "2026-07-26",
+      "type": "수출",
+      "krwAmount": 10112541,
+      "daysUntil": 172,
+      "hedgeStatus": "부분헤지"
+    },
+    {
+      "id": "한국무역***)",
+      "counterparty": "한***주)",
+      "currency": "JPY",
+      "amount": 5150150,
+      "settlementDate": "2026-02-22",
+      "type": "수출",
+      "krwAmount": 48926425,
+      "daysUntil": 18,
+      "hedgeStatus": "부분헤지"
+    },
+    {
+      "id": "대한수출***입",
+      "counterparty": "대***출입",
+      "currency": "USD",
+      "amount": 396840,
+      "settlementDate": "2026-05-03",
+      "type": "수입",
+      "krwAmount": 535734000,
+      "daysUntil": 88,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "Paci***.",
+      "counterparty": "P***c.",
+      "currency": "CNY",
+      "amount": 272402,
+      "settlementDate": "2026-04-22",
+      "type": "수출",
+      "krwAmount": 50394370,
+      "daysUntil": 77,
+      "hedgeStatus": "부분헤지"
+    },
+    {
+      "id": "XYZ ***n",
+      "counterparty": "X***on",
+      "currency": "JPY",
+      "amount": 9144009,
+      "settlementDate": "2026-06-15",
+      "type": "수출",
+      "krwAmount": 86868085.5,
+      "daysUntil": 131,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "Paci***.",
+      "counterparty": "P***c.",
+      "currency": "EUR",
+      "amount": 338739,
+      "settlementDate": "2026-04-20",
+      "type": "수입",
+      "krwAmount": 491171550,
+      "daysUntil": 75,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "동양상***사",
+      "counterparty": "동***상사",
+      "currency": "CNY",
+      "amount": 99275,
+      "settlementDate": "2026-04-04",
+      "type": "수입",
+      "krwAmount": 18365875,
+      "daysUntil": 59,
+      "hedgeStatus": "부분헤지"
+    },
+    {
+      "id": "글로벌상***사",
+      "counterparty": "글***상사",
+      "currency": "USD",
+      "amount": 199081,
+      "settlementDate": "2026-05-04",
+      "type": "수출",
+      "krwAmount": 268759350,
+      "daysUntil": 89,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "대한수출***입",
+      "counterparty": "대***출입",
+      "currency": "CNY",
+      "amount": 329221,
+      "settlementDate": "2026-05-10",
+      "type": "수입",
+      "krwAmount": 60905885,
+      "daysUntil": 95,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "Inte***.",
+      "counterparty": "I***d.",
+      "currency": "USD",
+      "amount": 205268,
+      "settlementDate": "2026-06-03",
+      "type": "수출",
+      "krwAmount": 277111800,
+      "daysUntil": 119,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "한국무역***)",
+      "counterparty": "한***주)",
+      "currency": "USD",
+      "amount": 359436,
+      "settlementDate": "2026-02-25",
+      "type": "수출",
+      "krwAmount": 485238600,
+      "daysUntil": 21,
+      "hedgeStatus": "미헤지"
+    },
+    {
+      "id": "아시아무***역",
+      "counterparty": "아***무역",
+      "currency": "CNY",
+      "amount": 43752,
+      "settlementDate": "2026-04-10",
+      "type": "수출",
+      "krwAmount": 8094120,
+      "daysUntil": 65,
+      "hedgeStatus": "부분헤지"
+    }
+  ],
+  "count": 20,
+  "note": "개인정보 보호를 위해 마스킹 처리됨"
+}

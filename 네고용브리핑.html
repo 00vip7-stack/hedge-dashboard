@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>네고용 실시간 브리핑 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        
+        .print-only { display: none; }
+        @media print {
+            aside, header, .no-print { display: none !important; }
+            main { display: none !important; }
+            .print-only { 
+                display: block !important; 
+                width: 100%;
+                padding: 15mm;
+                font-size: 11pt; 
+            }
+            body { 
+                background: white !important; 
+                margin: 0 !important; 
+                padding: 0 !important;
+            }
+            @page {
+                margin: 15mm;
+                size: A4;
+            }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden bg-gray-50">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            
+            <a href="hedge-manager.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🖥️ 실시간 모니터</a>
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🚨 이탈 알림</a>
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">📋 네고용 실시간 브리핑</a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔔 환율 변동성 알림</a>
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 익명 마진 벤치마킹</a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📄 사후 보고서 자동생성</a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 hover:bg-gray-800">⏰ 결제 타이밍 점수</a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🎯 환차손익 시뮬레이션</a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🏆 타사 평균 환율 랭킹</a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📜 협상 이력 관리</a>
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">💹 달러선물 활용</a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">💬 네고용 실시간 브리핑 시트</h1>
+                    <p class="text-sm text-gray-500 mt-1">은행원과 통화하기 직전, 오늘의 협상 가이드를 확인하세요</p>
+                </div>
+                <button onclick="window.print()" class="no-print bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition transform hover:scale-105">
+                    🖨️ 인쇄하기
+                </button>
+            </div>
+        </header>
+        
+        <main class="flex-1 overflow-y-auto p-8 bg-gray-50">
+            
+            <!-- 브리핑 생성 버튼 -->
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-8 mb-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-2">🎯 오늘의 협상 가이드 생성</h2>
+                        <p class="text-blue-100">은행과 통화하기 전, 지금 바로 클릭하세요!</p>
+                    </div>
+                    <button onclick="generateBriefing()" class="bg-white text-blue-600 hover:bg-blue-50 font-bold py-4 px-8 rounded-lg shadow-xl transition transform hover:scale-105">
+                        <span class="text-2xl">📋</span>
+                        <div class="text-lg mt-1">브리핑 생성</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 브리핑 결과 (초기에는 숨김) -->
+            <div id="briefingResult" class="hidden">
+                
+                <!-- 실시간 시장 정보 -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6 border-l-4 border-blue-500">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">📊 실시간 시장 정보</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <p class="text-sm text-gray-600 mb-1">현재 시장가 (USD/KRW)</p>
+                            <p id="marketRate" class="text-3xl font-bold text-blue-600">1,350.00원</p>
+                            <p class="text-xs text-gray-500 mt-1">마지막 업데이트: <span id="updateTime">방금 전</span></p>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4">
+                            <p class="text-sm text-gray-600 mb-1">평소 귀사 평균 마진</p>
+                            <p id="avgMargin" class="text-3xl font-bold text-green-600">0.80원</p>
+                            <p class="text-xs text-gray-500 mt-1">최근 3개월 평균</p>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-4">
+                            <p class="text-sm text-gray-600 mb-1">오늘의 적정 환율</p>
+                            <p id="fairRate" class="text-3xl font-bold text-orange-600">1,350.80원</p>
+                            <p class="text-xs text-gray-500 mt-1">시장가 + 마진</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 핵심 협상 포인트 -->
+                <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 mb-6 border-l-4 border-green-500">
+                    <h3 class="text-xl font-bold text-green-800 mb-4">💡 핵심 협상 포인트</h3>
+                    <div class="space-y-4">
+                        <div class="bg-white rounded-lg p-5 shadow">
+                            <div class="flex items-start">
+                                <div class="text-3xl mr-4">✅</div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800 mb-2">적정 환율 기준</h4>
+                                    <p class="text-gray-700 leading-relaxed">
+                                        현재 시장가 <strong class="text-blue-600">1,350.00원</strong>, 평소 귀사 마진 <strong class="text-green-600">0.80원</strong> 적용 시 
+                                        적정가는 <strong class="text-orange-600 text-xl">1,350.80원</strong>입니다.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-5 shadow">
+                            <div class="flex items-start">
+                                <div class="text-3xl mr-4">⚠️</div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800 mb-2">협상 전략</h4>
+                                    <p class="text-gray-700 leading-relaxed">
+                                        은행이 <strong class="text-red-600">1,350.80원보다 높은 환율</strong>을 제시하면 
+                                        <strong>"시장 대비 마진이 과도합니다. 조정 부탁드립니다"</strong>라고 요청하세요.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg p-5 shadow">
+                            <div class="flex items-start">
+                                <div class="text-3xl mr-4">🎯</div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800 mb-2">목표 환율</h4>
+                                    <p class="text-gray-700 leading-relaxed">
+                                        <strong class="text-green-600">1,350.50원 이하</strong>로 협상 성공 시 평균 대비 유리한 거래입니다.
+                                        현재 시장 환경에서는 충분히 가능한 수치입니다.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 통화별 상세 가이드 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    
+                    <!-- USD -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-800">🇺🇸 USD/KRW 가이드</h3>
+                            <span class="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">유리</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">현재 시장가:</span>
+                                <span class="font-semibold">1,350.00원</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">권장 협상가:</span>
+                                <span class="font-semibold text-green-600">1,350.50원 이하</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">최대 수용가:</span>
+                                <span class="font-semibold text-orange-600">1,350.80원</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">거부 기준:</span>
+                                <span class="font-semibold text-red-600">1,351.00원 이상</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+                            <p class="text-xs text-blue-800">
+                                <strong>💬 협상 멘트:</strong> "타행 대비 마진이 높은 편입니다. 1,350.50원 가능할까요?"
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- EUR -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-800">🇪🇺 EUR/KRW 가이드</h3>
+                            <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-3 py-1 rounded-full">중립</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">현재 시장가:</span>
+                                <span class="font-semibold">1,470.00원</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">권장 협상가:</span>
+                                <span class="font-semibold text-green-600">1,470.60원 이하</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">최대 수용가:</span>
+                                <span class="font-semibold text-orange-600">1,470.90원</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">거부 기준:</span>
+                                <span class="font-semibold text-red-600">1,471.20원 이상</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+                            <p class="text-xs text-blue-800">
+                                <strong>💬 협상 멘트:</strong> "시장 변동성을 고려해 마진 조정 가능할까요?"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 경쟁사 비교 -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">🏦 타행 환율 비교 (참고용)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b-2 border-gray-200">
+                                <tr>
+                                    <th class="px-4 py-3 text-left font-semibold text-gray-700">은행</th>
+                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">USD/KRW</th>
+                                    <th class="px-4 py-3 text-right font-semibold text-gray-700">마진</th>
+                                    <th class="px-4 py-3 text-center font-semibold text-gray-700">평가</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-gray-800">A은행</td>
+                                    <td class="px-4 py-3 text-right font-semibold">1,350.40원</td>
+                                    <td class="px-4 py-3 text-right text-green-600">0.40원</td>
+                                    <td class="px-4 py-3 text-center"><span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">최우수</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-gray-800">B은행</td>
+                                    <td class="px-4 py-3 text-right font-semibold">1,350.60원</td>
+                                    <td class="px-4 py-3 text-right text-green-600">0.60원</td>
+                                    <td class="px-4 py-3 text-center"><span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">우수</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 bg-blue-50 border-2 border-blue-400">
+                                    <td class="px-4 py-3 text-gray-800 font-bold">거래 은행 (평균) ⬅️</td>
+                                    <td class="px-4 py-3 text-right font-bold text-blue-600">1,350.80원</td>
+                                    <td class="px-4 py-3 text-right text-blue-600">0.80원</td>
+                                    <td class="px-4 py-3 text-center"><span class="bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded">보통</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-gray-800">C은행</td>
+                                    <td class="px-4 py-3 text-right font-semibold">1,351.10원</td>
+                                    <td class="px-4 py-3 text-right text-red-600">1.10원</td>
+                                    <td class="px-4 py-3 text-center"><span class="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">불리</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 p-3 bg-yellow-50 rounded border border-yellow-300">
+                        <p class="text-sm text-yellow-800">
+                            💡 <strong>참고:</strong> 거래 은행의 제시 환율이 평균(1,350.80원)보다 높다면 
+                            "타행 대비 마진이 높습니다. A은행이나 B은행 수준으로 맞춰주실 수 있나요?" 라고 요청하세요.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 협상 체크리스트 -->
+                <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-purple-800 mb-4">✅ 통화 전 체크리스트</h3>
+                    <div class="space-y-3">
+                        <label class="flex items-center p-3 bg-white rounded-lg shadow-sm hover:shadow cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 rounded mr-3">
+                            <span class="text-gray-700">현재 시장 환율 확인 완료</span>
+                        </label>
+                        <label class="flex items-center p-3 bg-white rounded-lg shadow-sm hover:shadow cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 rounded mr-3">
+                            <span class="text-gray-700">우리 회사 평균 마진 숙지</span>
+                        </label>
+                        <label class="flex items-center p-3 bg-white rounded-lg shadow-sm hover:shadow cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 rounded mr-3">
+                            <span class="text-gray-700">협상 목표 환율 설정 (1,350.50원 이하)</span>
+                        </label>
+                        <label class="flex items-center p-3 bg-white rounded-lg shadow-sm hover:shadow cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 rounded mr-3">
+                            <span class="text-gray-700">타행 비교 데이터 준비</span>
+                        </label>
+                        <label class="flex items-center p-3 bg-white rounded-lg shadow-sm hover:shadow cursor-pointer">
+                            <input type="checkbox" class="w-5 h-5 text-blue-600 rounded mr-3">
+                            <span class="text-gray-700">협상 멘트 준비 완료</span>
+                        </label>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- 인쇄 전용 템플릿 -->
+    <div class="print-only">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+            <h1 style="font-size: 20pt; font-weight: bold; margin-bottom: 10px; color: #000;">은행 협상 브리핑 자료</h1>
+            <p style="font-size: 10pt; color: #555;">HedgeFreedom 실시간 협상 가이드</p>
+            <p style="font-size: 9pt; color: #777;" id="printDate"></p>
+        </div>
+
+        <div style="margin-bottom: 25px; padding: 15px; border: 1px solid #999; border-left: 3px solid #333;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px; color: #000;">📊 현재 시장 정보</h2>
+            <table style="width: 100%; font-size: 10pt;">
+                <tr>
+                    <td style="padding: 6px 0;"><strong>현재 시장가 (USD/KRW):</strong></td>
+                    <td style="text-align: right; font-size: 14pt; font-weight: bold;">1,350.00원</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0;"><strong>평소 귀사 평균 마진:</strong></td>
+                    <td style="text-align: right; font-size: 12pt; font-weight: bold;">0.80원</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0;"><strong>목표 체결가:</strong></td>
+                    <td style="text-align: right; font-size: 14pt; font-weight: bold;">1,350.80원</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="margin-bottom: 25px; padding: 15px; border: 1px solid #999; border-left: 3px solid #333;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px; color: #000;">🎯 오늘의 협상 전략</h2>
+            <div style="font-size: 11pt; line-height: 1.8;">
+                <p style="margin-bottom: 10px;"><strong>1단계 (오프닝):</strong> "안녕하세요, 오늘 USD 500,000 달러 환전 건으로 연락드렸습니다. 시장가 확인 부탁드립니다."</p>
+                <p style="margin-bottom: 10px;"><strong>2단계 (시장가 확인):</strong> 은행원이 제시한 가격이 시장가 대비 얼마인지 확인하세요.</p>
+                <p style="margin-bottom: 10px;"><strong>3단계 (협상):</strong> "타행에서는 시장가 +0.5원으로 제안받았습니다. 경쟁력 있는 가격 부탁드립니다."</p>
+                <p style="margin-bottom: 10px;"><strong>4단계 (마무리):</strong> 목표가 달성 시 즉시 체결하세요.</p>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 25px;">
+            <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px; color: #000;">💬 협상 스크립트</h2>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10pt;">
+                <thead>
+                    <tr style="background: #e5e5e5;">
+                        <th style="padding: 10px; text-align: left; border: 1px solid #999;">상황</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #999;">멘트 예시</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ccc;"><strong>오프닝</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ccc;">"500,000 달러 환전 건입니다. 현재 시장가 기준 어떻게 되나요?"</td>
+                    </tr>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 10px; border: 1px solid #ccc;"><strong>가격 높을 때</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ccc;">"타행에서 더 나은 조건 제시했는데, 조정 가능할까요?"</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ccc;"><strong>가격 만족</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ccc;">"좋습니다. 1,350.80원으로 500,000 달러 체결하겠습니다."</td>
+                    </tr>
+                    <tr style="background: #f9f9f9;">
+                        <td style="padding: 10px; border: 1px solid #ccc;"><strong>거절</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ccc;">"검토 후 다시 연락드리겠습니다. 감사합니다."</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #ddd; padding-top: 15px;">
+            <p>본 브리핑은 HedgeFreedom에서 자동 생성되었습니다.</p>
+        </div>
+    </div>
+
+    <script>
+        // 인쇄 시 날짜 업데이트
+        window.addEventListener('beforeprint', function() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ko-KR');
+            const timeStr = now.toLocaleTimeString('ko-KR');
+            document.getElementById('printDate').textContent = `생성일시: ${dateStr} ${timeStr}`;
+        });
+
+        function generateBriefing() {
+            // 현재 시간 업데이트
+            const now = new Date();
+            const timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('updateTime').textContent = timeStr;
+            
+            // 브리핑 결과 표시
+            const briefingResult = document.getElementById('briefingResult');
+            briefingResult.classList.remove('hidden');
+            
+            // 부드러운 스크롤
+            briefingResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // 성공 알림
+            showNotification();
+        }
+
+        function showNotification() {
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-xl z-50 animate-bounce';
+            notification.innerHTML = '✅ 협상 브리핑이 생성되었습니다!';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

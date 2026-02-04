@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-02-04T11:53:22.826287",
+  "customer_id": "test-customer-001",
+  "status": {
+    "exists": true,
+    "accessible": true,
+    "structureValid": true,
+    "hasPermission": true,
+    "healthy": true,
+    "folderName": "HEDGEFREEDOM",
+    "pcFingerprint": "abc123",
+    "details": {}
+  },
+  "analyzed": {
+    "health_score": 100,
+    "issues": [],
+    "severity": "normal"
+  }
+}

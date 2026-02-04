@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간단한 Excel 업로드 테스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #4CAF50;
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            background: #ffe6e6;
+            border-radius: 4px;
+        }
+        .success {
+            color: green;
+            padding: 10px;
+            background: #e6ffe6;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 간단한 Excel 업로드 테스트</h1>
+    
+    <div class="upload-area">
+        <h2>Excel 파일을 선택하세요</h2>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+        <button onclick="document.getElementById('fileInput').click()">📁 파일 선택</button>
+        <p id="fileName" style="margin-top: 10px; color: #666;">선택된 파일 없음</p>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        let selectedFile = null;
+        
+        document.getElementById('fileInput').addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            const resultDiv = document.getElementById('result');
+            const fileNameDiv = document.getElementById('fileName');
+            
+            if (!file) {
+                fileNameDiv.textContent = '선택된 파일 없음';
+                return;
+            }
+            
+            fileNameDiv.textContent = `선택됨: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+            selectedFile = file;
+            
+            try {
+                resultDiv.innerHTML = '<div class="success">⏳ 파일 읽는 중...</div>';
+                
+                // FileReader로 파일 읽기
+                const data = await readFileAsArrayBuffer(file);
+                
+                resultDiv.innerHTML = '<div class="success">✅ 파일 읽기 성공!</div>';
+                console.log('파일 크기:', data.byteLength, 'bytes');
+                
+                // SheetJS로 파싱
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // JSON으로 변환
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Excel 파싱 성공!<br><br>
+                        <strong>시트명:</strong> ${firstSheetName}<br>
+                        <strong>총 행 수:</strong> ${jsonData.length}<br>
+                        <strong>총 시트 수:</strong> ${workbook.SheetNames.length}<br><br>
+                        <strong>첫 5행 미리보기:</strong><br>
+                        ${JSON.stringify(jsonData.slice(0, 5), null, 2)}
+                    </div>
+                `;
+                
+                console.log('파싱 완료:', jsonData.length, '행');
+                console.log('첫 10행:', jsonData.slice(0, 10));
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ 오류 발생!<br><br>
+                        <strong>오류 메시지:</strong> ${error.message}<br>
+                        <strong>스택:</strong><br>${error.stack}
+                    </div>
+                `;
+                console.error('파싱 오류:', error);
+            }
+        });
+        
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(new Error('파일 읽기 실패: ' + e.target.error));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+    </script>
+</body>
+</html>

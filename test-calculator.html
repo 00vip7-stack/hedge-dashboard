@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>계산기 API 테스트</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .result-box {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        .result-box.show {
+            display: block;
+        }
+        .result-box h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .kpi-item {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .kpi-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .kpi-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-top: 5px;
+        }
+        .kpi-unit {
+            font-size: 14px;
+            color: #95a5a6;
+        }
+        .recommendation {
+            grid-column: 1 / -1;
+            background: #2ecc71;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .recommendation.warning {
+            background: #e74c3c;
+        }
+        .recommendation.normal {
+            background: #2ecc71;
+        }
+        .calculator-info {
+            margin-top: 15px;
+            padding: 10px;
+            background: #3498db;
+            color: white;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧮 서버 계산기 테스트</h1>
+        <p class="subtitle">플러그인 구조 기반 확장 가능한 계산기 시스템</p>
+
+        <div>
+            <button onclick="testCalculator()">계산 테스트 실행</button>
+            <button onclick="testMultiplePositions()">다중 포지션 테스트</button>
+            <button onclick="clearResults()">결과 지우기</button>
+        </div>
+
+        <div id="result" class="result-box">
+            <h3>📊 계산 결과</h3>
+            <div id="kpiGrid" class="kpi-grid"></div>
+            <div id="calculatorInfo" class="calculator-info"></div>
+        </div>
+
+        <div id="rawData" class="result-box">
+            <h3>📋 원시 데이터 (개발자용)</h3>
+            <pre id="jsonOutput"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';  // 같은 서버
+
+        async function testCalculator() {
+            showLoading();
+            
+            const testData = {
+                positions: [
+                    {currency: 'USD', amount: 100000, direction: 'hedge', rate: 1350.50},
+                    {currency: 'USD', amount: 50000, direction: 'hedge', rate: 1348.20},
+                    {currency: 'USD', amount: 80000, direction: 'exposure', rate: 1352.00}
+                ],
+                customerId: 'TEST001',
+                saveResults: false
+            };
+
+            try {
+                const response = await fetch(API_BASE + '/api/hedge/calculate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(testData)
+                });
+
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                alert('오류: ' + error.message);
+            }
+        }
+
+        async function testMultiplePositions() {
+            showLoading();
+            
+            const testData = {
+                positions: [
+                    {currency: 'USD', amount: 500000, direction: 'hedge', rate: 1350.00},
+                    {currency: 'USD', amount: 300000, direction: 'hedge', rate: 1348.50},
+                    {currency: 'USD', amount: 200000, direction: 'hedge', rate: 1352.20},
+                    {currency: 'EUR', amount: 150000, direction: 'exposure', rate: 1450.00},
+                    {currency: 'USD', amount: 100000, direction: 'exposure', rate: 1351.00}
+                ],
+                customerId: 'TEST002',
+                saveResults: false
+            };
+
+            try {
+                const response = await fetch(API_BASE + '/api/hedge/calculate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(testData)
+                });
+
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                alert('오류: ' + error.message);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('result').classList.add('show');
+            document.getElementById('kpiGrid').innerHTML = '<div class="loading">계산 중...</div>';
+        }
+
+        function displayResults(result) {
+            if (!result.success) {
+                alert('계산 실패: ' + result.error);
+                return;
+            }
+
+            const kpi = result.kpi;
+            const kpiGrid = document.getElementById('kpiGrid');
+            
+            // KPI 표시
+            kpiGrid.innerHTML = `
+                <div class="kpi-item">
+                    <div class="kpi-label">총 노출액</div>
+                    <div class="kpi-value">${formatNumber(kpi.totalExposure)} <span class="kpi-unit">원</span></div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-label">헤지된 금액</div>
+                    <div class="kpi-value">${formatNumber(kpi.hedgedAmount)} <span class="kpi-unit">원</span></div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-label">헤지 비율</div>
+                    <div class="kpi-value">${kpi.hedgeRatio} <span class="kpi-unit">%</span></div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-label">미헤지 금액</div>
+                    <div class="kpi-value">${formatNumber(kpi.unhedgedGap)} <span class="kpi-unit">원</span></div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-label">평균 헤지 환율</div>
+                    <div class="kpi-value">${kpi.avgHedgeRate} <span class="kpi-unit">원/달러</span></div>
+                </div>
+                <div class="kpi-item recommendation ${getRecommendationClass(kpi.recommendation)}">
+                    ${kpi.recommendation}
+                </div>
+            `;
+
+            // 계산기 정보
+            document.getElementById('calculatorInfo').innerHTML = `
+                <strong>계산기 시스템:</strong> 버전 ${result.calculatorInfo.version} | 
+                등록된 계산기: ${result.calculatorInfo.totalCalculators}개 
+                [${result.calculatorInfo.calculators.join(', ')}]
+            `;
+
+            // Raw 데이터
+            document.getElementById('jsonOutput').textContent = JSON.stringify(result, null, 2);
+            document.getElementById('result').classList.add('show');
+            document.getElementById('rawData').classList.add('show');
+        }
+
+        function getRecommendationClass(rec) {
+            if (rec === '적정') return 'normal';
+            return 'warning';
+        }
+
+        function formatNumber(num) {
+            return Math.round(num).toLocaleString('ko-KR');
+        }
+
+        function clearResults() {
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('rawData').classList.remove('show');
+        }
+
+        // 페이지 로드 시 자동 테스트 (선택적)
+        // window.addEventListener('load', testCalculator);
+    </script>
+</body>
+</html>

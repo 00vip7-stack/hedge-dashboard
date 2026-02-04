@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-02-04T01:34:12.395Z",
+  "kpi": {
+    "totalExposure": 3933568986,
+    "hedgedAmount": 1325970887.5,
+    "currentHedgeRatio": 33.7,
+    "targetHedgeRatio": 70,
+    "gap": -36.3,
+    "unhedgedAmount": 2607598098.5
+  }
+}

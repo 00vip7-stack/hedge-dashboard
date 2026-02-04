@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HedgeFreedom - 로그인</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // 페이지 로드 시 이미 로그인되어 있으면 리다이렉트
+        document.addEventListener('DOMContentLoaded', function() {
+            const isLoggedIn = localStorage.getItem('user_logged_in') === 'true';
+            const onboardingCompleted = localStorage.getItem('hedge_onboarding_completed') === 'true';
+            
+            if (isLoggedIn) {
+                if (onboardingCompleted) {
+                    // 로그인 + 온보딩 완료 → 대시보드
+                    console.log('✅ 이미 로그인됨 - 대시보드로 이동');
+                    window.location.href = './hedge-manager.html';
+                } else {
+                    // 로그인했지만 온보딩 미완료 → 온보딩
+                    console.log('📄 로그인됨 하지만 온보딩 미완료 - 온보딩으로 이동');
+                    window.location.href = './onboarding.html';
+                }
+            }
+        });
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .login-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <!-- 로고 -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">HedgeFreedom</h1>
+            <p class="text-gray-500 text-sm">외환 헤지 관리 플랫폼</p>
+        </div>
+
+        <!-- 로그인 폼 -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
+                    이메일
+                </label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                    placeholder="your@company.com"
+                >
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                    비밀번호
+                </label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                    placeholder="••••••••"
+                >
+            </div>
+
+            <div class="flex items-center justify-between mb-6">
+                <label class="flex items-center">
+                    <input type="checkbox" id="rememberMe" class="mr-2">
+                    <span class="text-sm text-gray-600">로그인 상태 유지</span>
+                </label>
+                <a href="#" class="text-sm text-purple-600 hover:text-purple-800">비밀번호 찾기</a>
+            </div>
+
+            <button 
+                type="submit" 
+                class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition duration-300"
+            >
+                로그인
+            </button>
+        </form>
+
+        <!-- 로딩 상태 -->
+        <div id="loadingState" class="hidden mt-6 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            <p class="text-gray-600 mt-2">인증 중...</p>
+        </div>
+
+        <!-- 에러 메시지 -->
+        <div id="errorMessage" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-600 text-sm"></p>
+        </div>
+
+        <!-- 구분선 -->
+        <div class="mt-8 mb-6 border-t border-gray-200"></div>
+
+        <!-- 데모 계정 안내 -->
+        <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-sm font-bold text-blue-800 mb-2">🎯 데모 계정 (테스트용)</p>
+            <div class="text-xs text-blue-700 space-y-1 font-mono">
+                <div>이메일: <span class="font-bold">demo@hedgefreedom.com</span></div>
+                <div>비밀번호: <span class="font-bold">demo1234</span></div>
+            </div>
+            <button 
+                onclick="quickDemoLogin()" 
+                class="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold py-2 px-4 rounded transition"
+            >
+                ⚡ 데모 계정으로 빠른 로그인
+            </button>
+        </div>
+
+        <!-- 추가 정보 -->
+        <div class="text-center mt-6">
+            <p class="text-gray-600 text-sm mb-4">아직 계정이 없으신가요?</p>
+            <a href="#" class="text-purple-600 hover:text-purple-800 font-semibold text-sm">
+                무료 체험 신청하기 →
+            </a>
+        </div>
+
+        <!-- 시스템 정보 -->
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div class="text-xs text-gray-500 space-y-1">
+                <div class="flex justify-between">
+                    <span>로컬 버전:</span>
+                    <span id="localVersion" class="font-mono">v1.0.0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>서버 상태:</span>
+                    <span id="serverStatus" class="text-green-600">● 정상</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>데이터 저장:</span>
+                    <span class="font-mono">로컬 폴더</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 설정
+        const API_SERVER = 'https://api.hedgefreedom.com'; // 실제 서버 주소로 변경
+        const LOCAL_STORAGE_KEY = 'hedgefreedom_auth';
+        const LOCAL_VERSION = 'v1.0.0';
+
+        // 데모 계정 정보
+        const DEMO_ACCOUNT = {
+            email: 'demo@hedgefreedom.com',
+            password: 'demo1234'
+        };
+
+        // 데모 계정 빠른 로그인
+        function quickDemoLogin() {
+            document.getElementById('email').value = DEMO_ACCOUNT.email;
+            document.getElementById('password').value = DEMO_ACCOUNT.password;
+            document.getElementById('rememberMe').checked = true;
+            
+            // 폼 자동 제출
+            setTimeout(() => {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit', { cancelable: true }));
+            }, 300);
+        }
+
+        // 서버 상태 체크
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_SERVER}/health`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    document.getElementById('serverStatus').innerHTML = '● 정상';
+                    document.getElementById('serverStatus').className = 'text-green-600';
+                } else {
+                    throw new Error('Server unavailable');
+                }
+            } catch (error) {
+                console.warn('서버 연결 실패, 오프라인 모드:', error);
+                document.getElementById('serverStatus').innerHTML = '● 오프라인';
+                document.getElementById('serverStatus').className = 'text-yellow-600';
+            }
+        }
+
+        // 로그인 처리
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            // UI 상태 변경
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+
+            try {
+                let authData;
+                
+                // 먼저 로컬 인증 시도 (데모/오프라인 모드)
+                if (email === DEMO_ACCOUNT.email && password === DEMO_ACCOUNT.password) {
+                    // 로컬 데모 계정 인증 성공
+                    console.log('로컬 데모 계정 인증 성공');
+                    authData = {
+                        token: 'demo_token_' + Date.now(),
+                        userId: 'demo_user',
+                        email: email,
+                        companyName: '데모 회사',
+                        userName: '데모 사용자',
+                        permissions: ['read', 'write', 'execute']
+                    };
+                } else {
+                    // 서버 인증 시도
+                    try {
+                        const response = await fetch(`${API_SERVER}/auth/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password })
+                        });
+
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.message || '로그인 실패');
+                        }
+
+                        authData = await response.json();
+                    } catch (serverError) {
+                        // 서버 연결 실패 시 로컬 인증 시도
+                        console.warn('서버 인증 실패, 로컬 모드로 전환:', serverError);
+                        
+                        // 임시 로컬 인증 (개발용)
+                        if (email && password) {
+                            authData = {
+                                token: 'local_token_' + Date.now(),
+                                userId: email.split('@')[0],
+                                email: email,
+                                companyName: '로컬 회사',
+                                userName: email.split('@')[0],
+                                permissions: ['read', 'write', 'execute']
+                            };
+                        } else {
+                            throw new Error('이메일과 비밀번호를 입력해주세요.');
+                        }
+                    }
+                }
+                
+                // 인증 정보 저장
+                const authInfo = {
+                    token: authData.token,
+                    userId: authData.userId,
+                    email: email,
+                    companyName: authData.companyName,
+                    userName: authData.userName,
+                    permissions: authData.permissions,
+                    loginTime: new Date().toISOString(),
+                    rememberMe: rememberMe
+                };
+
+                // 로컬 스토리지에 저장
+                if (rememberMe) {
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(authInfo));
+                } else {
+                    sessionStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(authInfo));
+                }
+                
+                // 로그인 상태 저장
+                localStorage.setItem('user_logged_in', 'true');
+
+                // 메인 대시보드 또는 온보딩으로 이동
+                const onboardingCompleted = localStorage.getItem('hedge_onboarding_completed') === 'true';
+                
+                console.log('로그인 성공! ', onboardingCompleted ? '대시보드로' : '온보딩으로', ' 이동...');
+                
+                if (onboardingCompleted) {
+                    // 온보딩 완료 → 대시보드
+                    window.location.href = 'hedge-manager.html';
+                } else {
+                    // 온보딩 미완료 → 온보딩 페이지
+                    window.location.href = 'onboarding.html';
+                }
+
+            } catch (error) {
+                console.error('로그인 오류:', error);
+                showError(error.message);
+                
+                // UI 복원
+                document.getElementById('loginForm').classList.remove('hidden');
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        // 로컬 폴더 설정
+        async function setupLocalFolder(userId) {
+            try {
+                // File System Access API 지원 확인
+                if ('showDirectoryPicker' in window) {
+                    // 사용자에게 물어보기 (선택 사항)
+                    const setupFolder = confirm('데이터를 저장할 로컬 폴더를 선택하시겠습니까?\n(나중에도 설정할 수 있습니다)');
+                    
+                    if (setupFolder) {
+                        // 사용자에게 폴더 선택 요청
+                        const dirHandle = await window.showDirectoryPicker({
+                            mode: 'readwrite',
+                            startIn: 'documents'
+                        });
+                        
+                        // 폴더 핸들 저장 (실제로는 IndexedDB 사용 권장)
+                        console.log('로컬 폴더 설정 완료:', dirHandle.name);
+                        
+                        // 설정 파일 생성
+                        await createConfigFile(dirHandle, userId);
+                    } else {
+                        console.log('폴더 설정을 건너뛰었습니다. localStorage 사용.');
+                    }
+                } else {
+                    console.warn('File System Access API 미지원. localStorage 사용');
+                }
+            } catch (error) {
+                console.error('폴더 설정 오류:', error);
+                // 폴더 설정 실패해도 진행 (localStorage 사용)
+            }
+        }
+
+        // 설정 파일 생성
+        async function createConfigFile(dirHandle, userId) {
+            const config = {
+                userId: userId,
+                createdAt: new Date().toISOString(),
+                version: LOCAL_VERSION,
+                dataFolder: dirHandle.name
+            };
+
+            const configFile = await dirHandle.getFileHandle('hedgefreedom.config.json', { create: true });
+            const writable = await configFile.createWritable();
+            await writable.write(JSON.stringify(config, null, 2));
+            await writable.close();
+            
+            console.log('설정 파일 생성 완료');
+        }
+
+        // 에러 표시
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.querySelector('p').textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        // 자동 로그인 체크
+        function checkAutoLogin() {
+            const savedAuth = localStorage.getItem(LOCAL_STORAGE_KEY) || 
+                            sessionStorage.getItem(LOCAL_STORAGE_KEY);
+            
+            if (savedAuth) {
+                try {
+                    const authInfo = JSON.parse(savedAuth);
+                    
+                    // 토큰 유효성 검증 (간단한 시간 체크)
+                    const loginTime = new Date(authInfo.loginTime);
+                    const now = new Date();
+                    const hoursDiff = (now - loginTime) / (1000 * 60 * 60);
+                    
+                    if (hoursDiff < 24) {
+                        // 24시간 이내면 자동 로그인
+                        console.log('자동 로그인 중...');
+                        window.location.href = 'hedge-manager.html';
+                    } else {
+                        // 만료된 토큰 제거
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                        sessionStorage.removeItem(LOCAL_STORAGE_KEY);
+                    }
+                } catch (error) {
+                    console.error('자동 로그인 오류:', error);
+                }
+            }
+        }
+
+        // 데모/테스트 로그인
+        function quickLogin() {
+            document.getElementById('email').value = 'demo@hedgefreedom.com';
+            document.getElementById('password').value = 'demo1234';
+            document.getElementById('rememberMe').checked = true;
+        }
+
+        // 페이지 로드 시
+        window.addEventListener('load', () => {
+            document.getElementById('localVersion').textContent = LOCAL_VERSION;
+            checkServerStatus();
+            checkAutoLogin();
+            
+            // 개발 모드: Shift+D로 빠른 로그인
+            document.addEventListener('keydown', (e) => {
+                if (e.shiftKey && e.key === 'D') {
+                    quickLogin();
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>

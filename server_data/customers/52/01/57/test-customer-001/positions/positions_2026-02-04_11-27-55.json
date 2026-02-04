@@ -1,0 +1,17 @@
+{
+  "uploadTime": "2026-02-04T11:27:55.131851",
+  "originalFileName": "unknown.xlsx",
+  "dataCount": 2,
+  "data": [
+    {
+      "currency": "USD",
+      "amount": 1000000,
+      "type": "수출"
+    },
+    {
+      "currency": "USD",
+      "amount": -500000,
+      "type": "수입"
+    }
+  ]
+}

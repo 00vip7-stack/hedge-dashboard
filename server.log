@@ -1,0 +1,7 @@
+nohup: ignoring input
+/workspaces/hedge-dashboard/mock_server_app.py:20: DeprecationWarning: 'cgi' is deprecated and slated for removal in Python 3.13
+  import cgi
+127.0.0.1 - - [04/Feb/2026 11:53:22] "POST /api/folder/status HTTP/1.1" 200 230
+127.0.0.1 - - [04/Feb/2026 11:53:33] "GET /api/folder/status?customerId=test-customer-001 HTTP/1.1" 200 244
+127.0.0.1 - - [04/Feb/2026 11:53:40] "GET /api/folder/summary HTTP/1.1" 200 410
+127.0.0.1 - - [04/Feb/2026 11:53:51] "POST /api/folder/status HTTP/1.1" 200 340

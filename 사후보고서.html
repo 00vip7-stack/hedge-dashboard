@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>사후 보고서 자동 생성 - HedgeFreedom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        .report-card { transition: all 0.3s ease; }
+        .report-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @media print {
+            .no-print { display: none; }
+            body { background: white; }
+            .bg-gray-50 { background: white; }
+            main { padding: 0 !important; }
+            #reportContent { 
+                box-shadow: none !important; 
+                border: none !important; 
+                page-break-inside: avoid; 
+            }
+            .rounded-lg { border-radius: 0 !important; }
+            /* 보고서 헤더 인쇄 시 색상 유지 */
+            .bg-gradient-to-r { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* 페이지 구분 */
+            .page-break { page-break-before: always; }
+            /* 여백 최적화 */
+            @page { margin: 15mm; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden bg-gray-50">
+
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto no-print">
+        <div class="p-6 text-white text-xl font-bold border-b border-gray-800">HedgeFreedom</div>
+        <nav class="mt-4 pb-20">
+            
+            <a href="hedge-manager.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🖥️ 실시간 모니터</a>
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🚨 이탈 알림</a>
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📋 네고용 실시간 브리핑</a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🔔 환율 변동성 알림</a>
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📊 익명 마진 벤치마킹</a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">📄 사후 보고서 자동생성</a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 hover:bg-gray-800">⏰ 결제 타이밍 점수</a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🎯 환차손익 시뮬레이션</a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 hover:bg-gray-800">🏆 타사 평균 환율 랭킹</a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 hover:bg-gray-800">📜 협상 이력 관리</a>
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">💹 달러선물 활용</a>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b p-4 no-print">
+            <h1 class="text-2xl font-bold text-gray-800">📄 사후 보고서 자동생성 (1초 완성)</h1>
+            <p class="text-sm text-gray-500 mt-1">클릭 한 번으로 전문 보고서를 완성하고 바로 퇴근하세요! ⏰</p>
+        </header>
+        
+        <main class="flex-1 overflow-y-auto p-8 bg-gray-50">
+            
+            <!-- 시간 절약 배너 -->
+            <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-lg p-6 mb-6 text-white no-print">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold mb-2">⚡ 담당자의 퇴근 시간을 앞당겨주는 최애 기능</h2>
+                        <p class="text-lg mb-2">
+                            평소 30분 걸리던 보고서 작성, 이제 <strong class="text-yellow-300 text-xl">1초</strong>면 끝!
+                        </p>
+                        <p class="text-purple-100">
+                            ✨ 과거 거래 선택 → 클릭 한 번 → PDF 다운로드 → 퇴근!
+                        </p>
+                    </div>
+                    <div class="text-center ml-6">
+                        <div class="text-7xl mb-2">🚀</div>
+                        <p class="text-sm font-semibold">월 10시간 절약</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 간편 선택 패널 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6 no-print">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">🎯 보고서 생성 (간편 모드)</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- 최근 거래 선택 -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">📋 최근 거래 선택</label>
+                        <select id="tradeSelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- 거래 선택 --</option>
+                            <option value="1" selected>2026-01-28 | USD 50만 | 1,352.30원 체결</option>
+                            <option value="2">2026-01-22 | USD 80만 | 1,348.50원 체결</option>
+                            <option value="3">2026-01-15 | USD 120만 | 1,355.80원 체결</option>
+                            <option value="4">2026-01-10 | USD 60만 | 1,351.20원 체결</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 보고서 유형 -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">📝 보고서 유형</label>
+                        <select id="reportType" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                            <option value="standard" selected>표준 보고서 (CFO용)</option>
+                            <option value="detailed">상세 보고서 (감사용)</option>
+                            <option value="simple">간편 보고서 (내부용)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="generateReport()" class="flex-1 min-w-[200px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition transform hover:scale-105 shadow-lg">
+                        ⚡ 1초만에 보고서 자동 생성
+                    </button>
+                    <button onclick="printReport()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-4 px-6 rounded-lg text-lg transition shadow-lg">
+                        🖨️ 인쇄하기
+                    </button>
+                    <button onclick="downloadPDF()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-lg transition shadow-lg">
+                        📥 PDF 저장
+                    </button>
+                </div>
+                
+                <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p class="text-blue-800 text-sm">
+                        💡 <strong>Tip:</strong> 생성된 보고서는 외부 객관적 평가 문구가 자동으로 포함되어 
+                        상사에게 제출하기에 완벽합니다!
+                    </p>
+                    <p class="text-blue-700 text-xs mt-2">
+                        🖨️ <strong>인쇄하기:</strong> 브라우저 인쇄 기능으로 즉시 출력 또는 PDF 저장 |
+                        📥 <strong>PDF 저장:</strong> 전문 레이아웃으로 파일 다운로드
+                    </p>
+                </div>
+            </div>
+
+            <!-- 자동 생성된 보고서 미리보기 -->
+            <div id="reportPreview" class="fade-in">
+                <!-- 보고서 컨텐츠 -->
+                <div id="reportContent" class="bg-white rounded-lg shadow-2xl border border-gray-200">
+                    
+                    <!-- 보고서 헤더 -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-t-lg">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-3xl font-bold mb-2">외환 거래 사후 평가 보고서</h2>
+                                <p class="text-blue-100">Post-Trade Evaluation Report</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="bg-white bg-opacity-20 rounded-lg px-4 py-2">
+                                    <p class="text-sm">생성일시</p>
+                                    <p class="font-bold text-lg" id="reportDate">2026-02-03 14:35</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 mt-6">
+                            <div class="bg-white bg-opacity-10 rounded-lg p-3">
+                                <p class="text-sm text-blue-100">작성자</p>
+                                <p class="font-semibold">김재무 차장</p>
+                            </div>
+                            <div class="bg-white bg-opacity-10 rounded-lg p-3">
+                                <p class="text-sm text-blue-100">부서</p>
+                                <p class="font-semibold">재무팀</p>
+                            </div>
+                            <div class="bg-white bg-opacity-10 rounded-lg p-3">
+                                <p class="text-sm text-blue-100">보고 대상</p>
+                                <p class="font-semibold">CFO / 이사회</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 보고서 본문 -->
+                    <div class="p-8">
+                        
+                        <!-- 종합 평가 (가장 먼저) -->
+                        <div class="bg-green-50 border-l-4 border-green-500 p-6 mb-8 rounded-r-lg">
+                            <h3 class="text-xl font-bold text-green-800 mb-3 flex items-center">
+                                ✅ 종합 평가 (외부 객관적 분석)
+                            </h3>
+                            <div class="bg-white rounded-lg p-5 border border-green-200">
+                                <p class="text-lg text-gray-800 mb-3 leading-relaxed">
+                                    본 거래는 <strong class="text-green-700">시장 조건 대비 우수한 타이밍과 적정한 실행가로 체결</strong>되었으며, 
+                                    리스크 관리 측면에서 <strong class="text-green-700">매우 합리적인 의사결정</strong>이었음을 확인합니다.
+                                </p>
+                                <div class="grid grid-cols-3 gap-3 mt-4">
+                                    <div class="bg-green-100 rounded-lg p-3 text-center">
+                                        <p class="text-xs text-green-600 mb-1">타이밍 점수</p>
+                                        <p class="text-2xl font-bold text-green-700">92점</p>
+                                    </div>
+                                    <div class="bg-green-100 rounded-lg p-3 text-center">
+                                        <p class="text-xs text-green-600 mb-1">가격 적정성</p>
+                                        <p class="text-2xl font-bold text-green-700">89점</p>
+                                    </div>
+                                    <div class="bg-green-100 rounded-lg p-3 text-center">
+                                        <p class="text-xs text-green-600 mb-1">종합 등급</p>
+                                        <p class="text-2xl font-bold text-green-700">A+</p>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-green-700 mt-4 font-semibold bg-green-100 p-3 rounded">
+                                    📌 <strong>결론:</strong> 담당자는 시장 상황을 정확히 판단하여 최적의 시점에 거래를 실행했으며, 
+                                    회사의 재무 안정성에 기여한 우수한 거래로 평가됩니다.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 거래 정보 -->
+                        <div class="mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4 border-b-2 border-gray-200 pb-2">
+                                📊 거래 정보
+                            </h3>
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="bg-gray-50 rounded-lg p-5">
+                                    <table class="w-full text-sm">
+                                        <tr class="border-b border-gray-200">
+                                            <td class="py-3 font-semibold text-gray-600">거래일시</td>
+                                            <td class="py-3 text-right font-bold">2026-01-28 10:23</td>
+                                        </tr>
+                                        <tr class="border-b border-gray-200">
+                                            <td class="py-3 font-semibold text-gray-600">통화</td>
+                                            <td class="py-3 text-right font-bold">USD</td>
+                                        </tr>
+                                        <tr class="border-b border-gray-200">
+                                            <td class="py-3 font-semibold text-gray-600">거래 금액</td>
+                                            <td class="py-3 text-right font-bold text-blue-600">$500,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 font-semibold text-gray-600">거래 유형</td>
+                                            <td class="py-3 text-right">선물환 매도 (3개월)</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-5">
+                                    <table class="w-full text-sm">
+                                        <tr class="border-b border-gray-200">
+                                            <td class="py-3 font-semibold text-gray-600">담당 은행</td>
+                                            <td class="py-3 text-right">KB국민은행</td>
+                                        </tr>
+                                        <tr class="border-b border-gray-200">
+                                            <td class="py-3 font-semibold text-gray-600">담당 딜러</td>
+                                            <td class="py-3 text-right">박영수 과장</td>
+                                        </tr>
+                                        <tr class="border-b border-gray-200">
+                                            <td class="py-3 font-semibold text-gray-600">승인자</td>
+                                            <td class="py-3 text-right">이경영 CFO</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 font-semibold text-gray-600">목적</td>
+                                            <td class="py-3 text-right">수출대금 환리스크 헤지</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 환율 분석 -->
+                        <div class="mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4 border-b-2 border-gray-200 pb-2">
+                                📈 환율 분석
+                            </h3>
+                            <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                                    <div class="bg-white rounded-lg p-4 shadow">
+                                        <p class="text-xs text-gray-500 mb-1">거래 시점 시장가</p>
+                                        <p class="text-2xl font-bold text-gray-700">1,350.50원</p>
+                                        <p class="text-xs text-gray-400 mt-1">Spot Rate (10:23)</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 shadow">
+                                        <p class="text-xs text-gray-500 mb-1">실행가 (체결가)</p>
+                                        <p class="text-2xl font-bold text-blue-600">1,352.30원</p>
+                                        <p class="text-xs text-gray-400 mt-1">Forward Rate (3M)</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 shadow">
+                                        <p class="text-xs text-gray-500 mb-1">당일 고가</p>
+                                        <p class="text-2xl font-bold text-red-600">1,358.20원</p>
+                                        <p class="text-xs text-gray-400 mt-1">Daily High</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 shadow">
+                                        <p class="text-xs text-gray-500 mb-1">당일 저가</p>
+                                        <p class="text-2xl font-bold text-green-600">1,348.80원</p>
+                                        <p class="text-xs text-gray-400 mt-1">Daily Low</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-white rounded-lg p-5 border-l-4 border-blue-500">
+                                    <h4 class="font-bold text-gray-800 mb-3">💰 거래 성과 분석</h4>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <span class="text-gray-600">당일 평균 대비</span>
+                                            <span class="font-bold text-green-600">-1.85원 유리 (절감액: 925,000원)</span>
+                                        </div>
+                                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <span class="text-gray-600">당일 고가 대비</span>
+                                            <span class="font-bold text-green-600">-5.90원 유리 (절감액: 2,950,000원)</span>
+                                        </div>
+                                        <div class="flex justify-between items-center p-2 bg-green-100 rounded border border-green-300">
+                                            <span class="text-gray-800 font-semibold">✅ 총 절감 효과 (추정)</span>
+                                            <span class="font-bold text-green-700 text-lg">약 295만원</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 시장 상황 분석 -->
+                        <div class="mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4 border-b-2 border-gray-200 pb-2">
+                                🌐 거래 시점 시장 상황
+                            </h3>
+                            <div class="bg-gray-50 rounded-lg p-6">
+                                <div class="grid grid-cols-2 gap-6 mb-4">
+                                    <div>
+                                        <h4 class="font-semibold text-gray-700 mb-2">주요 이벤트</h4>
+                                        <ul class="text-sm space-y-1 text-gray-600">
+                                            <li>• 한국은행 금리 동결 (3.5% 유지)</li>
+                                            <li>• 미국 고용지표 발표 예정 (금주)</li>
+                                            <li>• 원화 약세 흐름 지속 중</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-gray-700 mb-2">시장 심리</h4>
+                                        <ul class="text-sm space-y-1 text-gray-600">
+                                            <li>• 변동성 지수: 중간 (12.5)</li>
+                                            <li>• 거래량: 평균 수준</li>
+                                            <li>• 트렌드: 약보합 → 약세 전환</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="bg-blue-100 border border-blue-300 rounded-lg p-4">
+                                    <p class="text-sm text-blue-900">
+                                        <strong>📌 담당자 판단:</strong> 
+                                        원화 약세 전환 초기 국면에서 적절한 시점에 헤지를 실행함으로써, 
+                                        향후 환율 상승 리스크를 효과적으로 차단했습니다. 
+                                        특히 당일 저점 대비 3.50원 이내에서 체결하여 우수한 타이밍을 확보했습니다.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 리스크 관리 평가 -->
+                        <div class="mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4 border-b-2 border-gray-200 pb-2">
+                                🛡️ 리스크 관리 평가
+                            </h3>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div class="text-center mb-3">
+                                        <div class="text-4xl mb-2">✅</div>
+                                        <h4 class="font-bold text-green-800">헤지 비율</h4>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mb-2">전체 노출액 대비</p>
+                                    <p class="text-2xl font-bold text-green-600 text-center">75%</p>
+                                    <p class="text-xs text-green-700 text-center mt-2">✓ 적정 수준</p>
+                                </div>
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div class="text-center mb-3">
+                                        <div class="text-4xl mb-2">✅</div>
+                                        <h4 class="font-bold text-green-800">정책 준수</h4>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mb-2">사내 규정 준수율</p>
+                                    <p class="text-2xl font-bold text-green-600 text-center">100%</p>
+                                    <p class="text-xs text-green-700 text-center mt-2">✓ 완벽 준수</p>
+                                </div>
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div class="text-center mb-3">
+                                        <div class="text-4xl mb-2">✅</div>
+                                        <h4 class="font-bold text-green-800">승인 절차</h4>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mb-2">사전 승인 완료</p>
+                                    <p class="text-2xl font-bold text-green-600 text-center">정상</p>
+                                    <p class="text-xs text-green-700 text-center mt-2">✓ CFO 승인</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 최종 의견 -->
+                        <div class="bg-gradient-to-r from-indigo-50 to-blue-50 border-l-4 border-indigo-500 rounded-r-lg p-6">
+                            <h3 class="text-xl font-bold text-indigo-900 mb-4">📝 최종 의견 및 권고사항</h3>
+                            <div class="space-y-3 text-sm text-gray-700">
+                                <p class="leading-relaxed">
+                                    <strong class="text-indigo-700">1. 거래 적절성:</strong> 
+                                    본 거래는 시장 분석, 타이밍 선택, 가격 협상 등 모든 측면에서 
+                                    <strong class="text-green-600">매우 우수한 수준</strong>으로 실행되었습니다. 
+                                    특히 변동성이 높은 구간에서도 안정적인 헤지를 완료한 점은 높이 평가됩니다.
+                                </p>
+                                <p class="leading-relaxed">
+                                    <strong class="text-indigo-700">2. 비용 효율성:</strong> 
+                                    당일 평균 대비 유리한 가격에 체결하여 추정 절감액 약 295만원을 달성했으며, 
+                                    이는 <strong class="text-green-600">연환산 시 상당한 재무 기여</strong>가 예상됩니다.
+                                </p>
+                                <p class="leading-relaxed">
+                                    <strong class="text-indigo-700">3. 향후 권고:</strong> 
+                                    현재의 우수한 리스크 관리 프로세스를 유지하되, 
+                                    향후 더 큰 규모의 거래 시에는 분할 헤지 전략도 검토할 것을 권장합니다.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 서명 -->
+                        <div class="mt-10 pt-6 border-t-2 border-gray-300">
+                            <div class="flex justify-between items-end">
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">보고서 작성</p>
+                                    <p class="font-bold text-gray-800">재무팀 김재무 차장</p>
+                                    <p class="text-xs text-gray-500 mt-1">(HedgeFreedom 자동생성 시스템)</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-gray-600 mb-1">승인</p>
+                                    <p class="font-bold text-gray-800">이경영 CFO</p>
+                                    <div class="mt-2 text-xs text-gray-400">
+                                        (전자서명)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- 과거 보고서 이력 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mt-6 no-print">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">📚 과거 생성 보고서 이력</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer report-card">
+                        <div class="flex items-center gap-4">
+                            <div class="text-3xl">📄</div>
+                            <div>
+                                <p class="font-semibold text-gray-800">2026-01-28 USD 50만 헤지 보고서</p>
+                                <p class="text-sm text-gray-500">생성일: 2026-01-28 | 평가: A+ 우수</p>
+                            </div>
+                        </div>
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                            재다운로드
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer report-card">
+                        <div class="flex items-center gap-4">
+                            <div class="text-3xl">📄</div>
+                            <div>
+                                <p class="font-semibold text-gray-800">2026-01-22 USD 80만 헤지 보고서</p>
+                                <p class="text-sm text-gray-500">생성일: 2026-01-22 | 평가: A 우수</p>
+                            </div>
+                        </div>
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                            재다운로드
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer report-card">
+                        <div class="flex items-center gap-4">
+                            <div class="text-3xl">📄</div>
+                            <div>
+                                <p class="font-semibold text-gray-800">2026-01-15 USD 120만 헤지 보고서</p>
+                                <p class="text-sm text-gray-500">생성일: 2026-01-15 | 평가: A+ 최우수</p>
+                            </div>
+                        </div>
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                            재다운로드
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // 현재 날짜/시간 업데이트
+        function updateDateTime() {
+            const now = new Date();
+            const formatted = now.getFullYear() + '-' + 
+                String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                String(now.getDate()).padStart(2, '0') + ' ' + 
+                String(now.getHours()).padStart(2, '0') + ':' + 
+                String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('reportDate').textContent = formatted;
+        }
+
+        // 보고서 생성 (애니메이션)
+        function generateReport() {
+            const preview = document.getElementById('reportPreview');
+            preview.classList.remove('fade-in');
+            void preview.offsetWidth; // 리플로우 강제
+            preview.classList.add('fade-in');
+            
+            updateDateTime();
+            
+            // 생성 완료 알림
+            alert('✅ 보고서가 1초만에 자동 생성되었습니다!\n\n이제 인쇄 또는 PDF 저장 버튼을 클릭하세요. 😊');
+        }
+
+        // 인쇄하기
+        function printReport() {
+            // 인쇄 전 확인
+            if (confirm('보고서를 인쇄하시겠습니까?\n\n💡 Tip: 인쇄 대화상자에서 "PDF로 저장"을 선택하면 PDF 파일로도 저장할 수 있습니다.')) {
+                window.print();
+            }
+        }
+
+        // PDF 다운로드
+        function downloadPDF() {
+            const element = document.getElementById('reportContent');
+            const opt = {
+                margin: 10,
+                filename: '외환거래_사후평가보고서_' + new Date().toISOString().split('T')[0] + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            
+            html2pdf().set(opt).from(element).save();
+            
+            setTimeout(() => {
+                alert('🎉 PDF 다운로드가 시작되었습니다!\n\n파일이 저장되면 바로 퇴근하셔도 됩니다! 😄');
+            }, 500);
+        }
+
+        // 페이지 로드 시 자동 생성
+        window.onload = function() {
+            updateDateTime();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+[Unit]
+Description=HedgeFreedom Mock API Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/hedge-dashboard
+Environment="SERVER_HOST=0.0.0.0"
+Environment="SERVER_PORT=9000"
+Environment="ENVIRONMENT=production"
+ExecStart=/usr/bin/python3 /var/www/hedge-dashboard/mock-server.py
+Restart=always
+RestartSec=3
+
+# 로그 설정
+StandardOutput=append:/var/log/hedge-server/access.log
+StandardError=append:/var/log/hedge-server/error.log
+
+# 보안 설정
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

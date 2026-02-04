@@ -1,0 +1,148 @@
+<!-- 🚨 강제 폴더 설정 모달 (최초 실행 시 무조건 표시) -->
+<div id="mandatoryFolderSetupModal" class="modal" style="background-color: rgba(0, 0, 0, 0.95);">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-t-lg -mt-6 -mx-6 mb-6">
+            <h2 class="text-3xl font-bold mb-2">🎉 HedgeFreedom에 오신 것을 환영합니다!</h2>
+            <p class="text-sm opacity-90">
+                시작하기 전, 단 1분만 투자하여 안전한 작업 환경을 설정하세요
+            </p>
+        </div>
+
+        <!-- 신뢰 구축 메시지 -->
+        <div class="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-6 mb-6 rounded-r-lg">
+            <h3 class="text-lg font-bold text-green-900 mb-3 flex items-center">
+                <span class="text-2xl mr-2">🛡️</span>
+                우리 데이터는 우리가 관리합니다
+            </h3>
+            <div class="space-y-3 text-sm text-gray-800">
+                <div class="flex items-start">
+                    <span class="text-green-600 font-bold mr-2">✅</span>
+                    <div>
+                        <strong>데이터 주권 보장:</strong> 고객님의 모든 거래 데이터는 고객님의 컴퓨터에만 저장됩니다
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <span class="text-blue-600 font-bold mr-2">🔒</span>
+                    <div>
+                        <strong>민감정보 보호:</strong> 거래처명, 은행명 등은 자동 마스킹되어 서버로 전송되지 않습니다
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <span class="text-purple-600 font-bold mr-2">📊</span>
+                    <div>
+                        <strong>필요한 데이터만 전송:</strong> 통화, 금액, 날짜 등 계산에 필요한 컬럼만 선별하여 전송합니다
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <span class="text-orange-600 font-bold mr-2">💾</span>
+                    <div>
+                        <strong>자동 백업:</strong> 모든 거래 히스토리가 로컬에 보관되어 감사 대응이 즉시 가능합니다
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 단계 안내 -->
+        <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 mb-6">
+            <h3 class="text-lg font-bold text-blue-900 mb-4 flex items-center">
+                <span class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">1</span>
+                작업 폴더를 선택해주세요 (단 한 번만)
+            </h3>
+            
+            <div class="bg-white rounded-lg p-4 mb-4">
+                <p class="text-sm text-gray-700 mb-3">
+                    <strong>📁 폴더 하나만 선택하면 모든 준비가 완료됩니다!</strong>
+                </p>
+                <p class="text-xs text-gray-600 mb-3">
+                    선택한 폴더 안에 다음과 같은 구조가 자동으로 생성됩니다:
+                </p>
+                <pre class="text-xs bg-gray-50 p-3 rounded border font-mono text-gray-800">
+선택한 폴더/
+└── <strong class="text-blue-600">HEDGEFREEDOM/</strong>          ← 자동 생성
+    ├── <strong class="text-green-600">원본/</strong>             ← ERP 다운로드 파일 저장
+    ├── <strong class="text-purple-600">결과/</strong>             ← 계산 결과 자동 저장
+    ├── <strong class="text-orange-600">히스토리/</strong>         ← 일별 백업 (감사용)
+    └── <strong class="text-gray-600">캐시/</strong>             ← 임시 데이터</pre>
+            </div>
+
+            <div class="bg-yellow-50 border border-yellow-300 rounded p-3 mb-4">
+                <p class="text-xs text-yellow-900">
+                    <strong>💡 추천 위치:</strong> "문서(Documents)" 폴더를 선택하면 
+                    <code class="bg-yellow-100 px-1 rounded">문서/HEDGEFREEDOM/</code> 폴더가 생성됩니다
+                </p>
+            </div>
+
+            <button 
+                id="selectWorkspaceFolderBtn"
+                onclick="selectWorkspaceFolder()" 
+                class="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold text-lg hover:from-blue-700 hover:to-indigo-700 shadow-lg transition-all transform hover:scale-105"
+            >
+                📁 작업 폴더 선택하기
+            </button>
+            
+            <div id="workspaceFolderStatus" class="mt-3 text-center text-sm text-gray-500">
+                아직 선택하지 않았습니다
+            </div>
+        </div>
+
+        <!-- 자동 설정 안내 -->
+        <div class="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4 mb-6">
+            <h4 class="text-sm font-bold text-purple-900 mb-2">🚀 자동으로 설정되는 항목들</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-purple-800">
+                <div class="flex items-center">
+                    <span class="mr-2">✅</span> HEDGEFREEDOM 폴더 생성
+                </div>
+                <div class="flex items-center">
+                    <span class="mr-2">✅</span> 원본 폴더 생성
+                </div>
+                <div class="flex items-center">
+                    <span class="mr-2">✅</span> 결과 폴더 생성
+                </div>
+                <div class="flex items-center">
+                    <span class="mr-2">✅</span> 히스토리 폴더 생성
+                </div>
+                <div class="flex items-center">
+                    <span class="mr-2">✅</span> 브라우저 권한 저장
+                </div>
+                <div class="flex items-center">
+                    <span class="mr-2">✅</span> 익명화 규칙 적용
+                </div>
+            </div>
+        </div>
+
+        <!-- 기술 요구사항 -->
+        <div class="bg-gray-50 border border-gray-300 rounded-lg p-4 mb-6">
+            <details class="cursor-pointer">
+                <summary class="text-sm font-bold text-gray-700 mb-2">⚙️ 기술 요구사항 (클릭하여 확인)</summary>
+                <div class="text-xs text-gray-600 space-y-1 mt-2">
+                    <div>• 브라우저: Chrome 86+ 또는 Edge 86+</div>
+                    <div>• 연결: HTTPS (보안 연결 필수)</div>
+                    <div>• 권한: 파일 시스템 접근 허용</div>
+                    <div>• Codespaces: 포트를 "Public"으로 설정 후 HTTPS URL 사용</div>
+                </div>
+            </details>
+            
+            <button 
+                onclick="checkFolderAPISupport()" 
+                class="w-full mt-3 px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+            >
+                🔍 폴더 선택 기능 진단
+            </button>
+        </div>
+
+        <!-- 완료 버튼 -->
+        <button 
+            id="completeMandatorySetupBtn"
+            onclick="completeMandatoryFolderSetup()" 
+            disabled
+            class="w-full px-6 py-4 bg-gray-400 text-white rounded-lg font-bold text-lg cursor-not-allowed mb-4"
+        >
+            🚫 먼저 작업 폴더를 선택해주세요
+        </button>
+
+        <p class="text-xs text-gray-400 text-center">
+            이 설정은 최초 1회만 진행하며, 이후 자동으로 복구됩니다<br>
+            <span class="text-[10px]">powered by hedgeOn Engine | www.hedgefreedom.com</span>
+        </p>
+    </div>
+</div>

@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+.github
+
+# 로그
+*.log
+logs/
+
+# 임시 파일
+*.pid
+*.swp
+*.swo
+*~
+
+# 문서
+*.md
+!README.md
+
+# 개발 스크립트
+start-server.sh
+stop-server.sh
+restart-server.sh
+check-server.sh
+*.bat
+*.command
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*

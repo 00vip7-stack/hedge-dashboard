@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-02-04T11:53:51.465255",
+  "customer_id": "test-customer-002",
+  "status": {
+    "exists": true,
+    "accessible": true,
+    "structureValid": false,
+    "hasPermission": true,
+    "healthy": false,
+    "folderName": "HEDGEFREEDOM",
+    "pcFingerprint": "xyz789",
+    "details": {
+      "structure": {
+        "valid": false,
+        "unauthorizedFolders": [
+          "my_custom_folder",
+          "temp"
+        ],
+        "missingFolders": [
+          "logs"
+        ]
+      }
+    }
+  },
+  "analyzed": {
+    "health_score": 75,
+    "issues": [
+      "폴더 구조 무결성 실패",
+      "임의 폴더 감지: my_custom_folder, temp",
+      "필수 폴더 누락: logs"
+    ],
+    "severity": "warning"
+  }
+}

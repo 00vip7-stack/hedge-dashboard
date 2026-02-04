@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-02-04T04:42:05.239351",
+  "kpi": {
+    "totalExposure": null,
+    "hedgedAmount": null,
+    "hedgeRatio": null,
+    "unhedgedGap": null,
+    "avgHedgeRate": null,
+    "recommendation": null
+  },
+  "positionCount": 75
+}

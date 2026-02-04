@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>HedgeFreedom - 헤지 매니저 (v2.1)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="core/local-storage-handler.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        
+        .hedgefreedom-blue { color: #0056b3; }
+        .bg-hedgefreedom-dark { background-color: #001529; }
+        .action-card {
+            background: white;
+            border-top: 4px solid #1890ff;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .btn-execute {
+            background-color: #1890ff;
+            color: white;
+            transition: all 0.2s;
+        }
+        .btn-execute:hover {
+            background-color: #096dd9;
+        }
+        
+        .indicator-red {
+            color: #f5222d;
+            background: #fff1f0;
+            border: 1px solid #ffa39e;
+        }
+        .indicator-green {
+            color: #52c41a;
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+        }
+        
+        .status-unhedged { color: #f5222d; font-weight: bold; }
+        .status-partial { color: #fa8c16; font-weight: bold; }
+        .status-full { color: #52c41a; font-weight: bold; }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="flex h-screen">
+
+    <!-- 사이드바 -->
+    <aside class="bg-hedgefreedom-dark w-60 flex-shrink-0 text-gray-400 text-sm h-screen overflow-y-auto">
+        <div class="p-6 text-white border-b border-gray-800">
+            <div class="text-xl font-bold">HEDGEFREEDOM</div>
+            <div class="text-[10px] text-gray-500 mt-1">powered by hedgeOn</div>
+        </div>
+        <nav class="mt-4 pb-20">
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">핵심 기능</div>
+            <a href="01 헤지매니저.html" class="flex items-center px-6 py-3 bg-blue-600 text-white font-medium">
+                <span class="bg-white text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                헤지 매니저
+            </a>
+            <a href="02 노출분석 .html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                노출 분석
+            </a>
+            <a href="03 위험보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="bg-gray-700 text-gray-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                위험 보고서
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">알림 & 모니터링</div>
+            
+            <a href="이탈알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">🔔</span> 이탈 알림
+            </a>
+            <a href="변동성알림.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📈</span> 변동성 알림
+            </a>
+            <a href="실시간모니터.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">⚡</span> 실시간 모니터
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">거래 & 협상</div>
+            
+            <a href="네고용브리핑.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📋</span> 네고용 브리핑
+            </a>
+            <a href="협상이력.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📝</span> 협상 이력
+            </a>
+            <a href="결제타이밍.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">⏰</span> 결제 타이밍
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">분석 & 시뮬레이션</div>
+            
+            <a href="마진벤치마크.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📊</span> 마진 벤치마크
+            </a>
+            <a href="타사환율랭킹.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">🏆</span> 타사 환율 랭킹
+            </a>
+            <a href="환차손익시뮬레이션.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">💰</span> 환차손익 시뮬레이션
+            </a>
+            <a href="분석대시보드.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📉</span> 분석 대시보드
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            <div class="px-6 py-2 text-[10px] text-gray-600 uppercase tracking-wider">전략 & 보고</div>
+            
+            <a href="달러선물활용.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">🎯</span> 달러 선물 활용
+            </a>
+            <a href="사후보고서.html" class="flex items-center px-6 py-3 hover:bg-gray-800">
+                <span class="mr-3">📄</span> 사후 보고서
+            </a>
+            
+            <div class="border-t border-gray-800 my-4"></div>
+            
+            <a href="login.html" class="flex items-center px-6 py-3 hover:bg-gray-800 text-red-400">
+                🚪 로그아웃
+            </a>
+            
+            <div class="px-6 py-4 mt-8 border-t border-gray-800">
+                <div class="text-xs text-gray-500">로그인:</div>
+                <div id="userEmail" class="text-sm text-gray-300 truncate">demo@hedgefreedom.com</div>
+                <div id="companyName" class="text-xs text-gray-500 mt-1">데모 회사</div>
+                <div class="text-[10px] text-gray-600 mt-2">www.hedgefreedom.com</div>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        
+        <!-- 헤더 -->
+        <header class="bg-white border-b">
+            <div class="flex justify-between items-center px-8 py-0.5 border-b border-gray-50">
+                <div class="flex items-center space-x-2">
+                    <span id="serverStatusDot" class="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span id="serverStatusText" class="text-[10px] text-gray-500">서버: 정상</span>
+                </div>
+                <span id="lastUpdate" class="text-[10px] text-gray-400 font-light">갱신 중...</span>
+            </div>
+            <div class="h-14 flex items-center justify-between px-8">
+                <div id="exchangeRates" class="flex items-center space-x-6 flex-1">
+                    <!-- 환율은 JavaScript로 동적 생성 -->
+                </div>
+            </div>
+        </header>
+
+        <!-- 메인 영역 -->
+        <main class="p-6 overflow-y-auto space-y-6">
+            
+            <!-- 엑셀 업로드 섹션 -->
+            <section class="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-dashed border-green-300 rounded-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <h3 class="font-bold text-lg text-gray-800 mb-1">📤 거래 데이터 업로드</h3>
+                        <p class="text-xs text-gray-600 mb-3">엑셀 파일(.xlsx)을 업로드하면 자동으로 익명화되어 서버로 전송됩니다</p>
+                        <div class="flex items-center gap-3">
+                            <input 
+                                type="file" 
+                                id="excelFileInput" 
+                                accept=".xlsx,.xls" 
+                                class="hidden"
+                                onchange="handleFileSelect(event)"
+                            />
+                            <button 
+                                onclick="document.getElementById('excelFileInput').click()" 
+                                class="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 shadow-md flex items-center gap-2"
+                            >
+                                📁 파일 선택
+                            </button>
+                            <span id="selectedFileName" class="text-sm text-gray-500 italic">선택된 파일 없음</span>
+                            <button 
+                                id="uploadBtn" 
+                                onclick="uploadExcelFile()" 
+                                disabled
+                                class="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                ⬆️ 업로드 및 계산
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-gray-500 mb-1">지원 형식</div>
+                        <div class="text-sm font-bold text-green-600">.xlsx, .xls</div>
+                        <div class="text-xs text-gray-500 mt-2">최대 10MB</div>
+                    </div>
+                </div>
+                <!-- 업로드 진행 상태 -->
+                <div id="uploadProgress" class="mt-4 hidden">
+                    <div class="bg-white rounded-lg p-3 shadow-sm">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold text-gray-700">업로드 진행 중...</span>
+                            <span id="uploadPercentage" class="text-xs text-blue-600 font-bold">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="uploadProgressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <div id="uploadStatus" class="text-xs text-gray-500 mt-2">파일 읽는 중...</div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 거래 포지션 테이블 -->
+            <section class="action-card overflow-hidden">
+                <div class="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-lg text-white">📊 업로드된 거래 데이터</h3>
+                        <p class="text-xs text-blue-100 mt-1">고객별 거래 포지션 및 헤지 현황</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="tradeCount" class="text-sm font-bold text-white bg-blue-500 px-4 py-2 rounded-lg">로딩 중...</span>
+                        <button onclick="refreshData()" class="px-4 py-2 bg-white text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-50 flex items-center gap-2">
+                            🔄 새로고침
+                        </button>
+                        <button id="calculateHedgeBtn" onclick="calculateHedgeStrategy()" class="px-6 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-sm font-bold hover:from-orange-600 hover:to-red-600 shadow-lg">
+                            ⚡ 헤지 전략 계산
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 로딩 표시 -->
+                <div id="loadingIndicator" class="p-8 text-center">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p class="text-gray-500">데이터를 불러오는 중...</p>
+                </div>
+                
+                <!-- 포지션 테이블 -->
+                <div id="positionsTableContainer" class="overflow-auto max-h-60" style="display: none;">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-white text-gray-400 border-b sticky top-0">
+                            <tr>
+                                <th class="p-3 uppercase tracking-wider font-bold">거래ID</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">거래처명</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">통화</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">외화금액</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">결제예정일</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">구분</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">원화환산액</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">D-Day</th>
+                                <th class="p-3 uppercase tracking-wider font-bold">헤지상태</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionsTableBody" class="divide-y divide-gray-100">
+                            <!-- JavaScript로 동적 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- KPI 섹션 -->
+            <section id="kpiSection" class="grid grid-cols-3 gap-6">
+                <div class="bg-white p-5 rounded shadow-sm flex flex-col relative">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-bold text-gray-400">목표 헤지 비율</span>
+                        <button 
+                            id="editTargetRatioBtn" 
+                            onclick="toggleEditTargetRatio()" 
+                            class="text-gray-400 hover:text-blue-500 transition-colors"
+                            title="목표 비율 수정"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="targetRatioDisplay" class="flex items-end space-x-2">
+                        <span id="targetHedgeRatio" class="text-3xl font-bold text-gray-800">-</span>
+                        <span class="text-sm text-gray-500 mb-1">정책 기준</span>
+                    </div>
+                    <div id="targetRatioEdit" class="hidden flex items-center space-x-2">
+                        <input 
+                            type="number" 
+                            id="targetRatioInput" 
+                            class="w-24 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-2xl font-bold"
+                            min="0" 
+                            max="100"
+                            placeholder="80"
+                        />
+                        <span class="text-2xl font-bold text-gray-600">%</span>
+                        <button onclick="saveTargetRatio()" class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
+                            저장
+                        </button>
+                        <button onclick="cancelEditTargetRatio()" class="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400">
+                            취소
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded shadow-sm flex flex-col">
+                    <span class="text-xs font-bold text-gray-400 mb-2">현재 헤지 비율</span>
+                    <div class="flex items-end space-x-2">
+                        <span id="currentHedgeRatio" class="text-3xl font-bold text-red-500">-</span>
+                        <span id="hedgeGap" class="indicator-red text-[10px] px-2 py-1 rounded font-bold mb-1">로딩 중</span>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded shadow-sm flex flex-col">
+                    <span class="text-xs font-bold text-gray-400 mb-2">미헤지 노출</span>
+                    <div class="flex items-end space-x-2">
+                        <span id="unhedgedExposure" class="text-3xl font-bold text-gray-800">-</span>
+                        <span class="text-sm text-gray-500 mb-1">KRW</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 헤지 제안 -->
+            <section class="action-card">
+                <div class="p-4 bg-gray-50 flex justify-between items-center border-b">
+                    <div class="flex items-center gap-3">
+                        <h3 class="font-bold text-sm text-gray-700">📋 시스템 제안 헤지 거래</h3>
+                        <span id="suggestionsCount" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">0건</span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="executeAllSuggestions()" class="text-xs px-3 py-1 btn-execute rounded font-bold">
+                            모든 제안 실행
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-auto max-h-80">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-gray-100 border-b sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600">#</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600">거래처</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600">권장 상품</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600">통화</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600 text-right">권장 금액</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600">결제일</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-blue-600 font-bold">권장 은행</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600">환율</th>
+                                <th class="px-3 py-2 uppercase tracking-wider text-gray-600 text-center">실행</th>
+                            </tr>
+                        </thead>
+                        <tbody id="suggestionsTableBody" class="divide-y divide-gray-100">
+                            <!-- JavaScript로 동적 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- 초기 설정 모달 -->
+    <div id="initialSettingsModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">🎯 초기 설정</h2>
+            <p class="text-sm text-gray-600 mb-6">
+                HedgeFreedom을 시작합니다!<br>
+                맞춤형 헤지 전략을 위해 목표 헤지 비율을 설정해주세요.
+            </p>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-700 mb-2">
+                    목표 헤지 비율 (%)
+                </label>
+                <input 
+                    type="number" 
+                    id="targetHedgeRatioInput" 
+                    value="75" 
+                    min="0" 
+                    max="100"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg font-bold text-center"
+                >
+                <div class="mt-3 space-y-2">
+                    <p class="text-xs text-gray-500">💡 권장 값:</p>
+                    <div class="flex gap-2">
+                        <button onclick="setTargetRatio(85)" class="px-3 py-1 bg-gray-100 hover:bg-blue-100 rounded text-xs">
+                            보수적 85%
+                        </button>
+                        <button onclick="setTargetRatio(75)" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs font-bold">
+                            중립 75%
+                        </button>
+                        <button onclick="setTargetRatio(60)" class="px-3 py-1 bg-gray-100 hover:bg-blue-100 rounded text-xs">
+                            공격적 60%
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <button 
+                onclick="saveInitialSettings()" 
+                class="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-bold hover:from-blue-600 hover:to-blue-700 shadow-lg"
+            >
+                설정 완료 및 대시보드 시작
+            </button>
+        </div>
+    </div>
+
+    <!-- 폴더 선택 모달 -->
+    <div id="folderSelectionModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">📁 작업 폴더 지정 (필수)</h2>
+            <p class="text-sm text-gray-600 mb-4">
+                <strong class="text-red-600">⚠️ 중요:</strong> 반드시 문서 폴더에 <strong class="text-blue-600">"HEDGEFREEDOM"</strong> 폴더를 만들고 선택해주세요.<br>
+                이 폴더에는 모든 과거 거래 자료, 감사 대응 자료, 회계 처리 내역이 저장됩니다.
+            </p>
+            
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4 mb-6">
+                <p class="text-xs text-yellow-800 font-bold mb-2">⚠️ 폴더명 고정 이유:</p>
+                <ul class="text-xs text-yellow-900 space-y-1 ml-4">
+                    <li>• 모든 과거 거래 자료를 한 곳에서 관리</li>
+                    <li>• 감사 대응 시 즉시 자료 제출 가능</li>
+                    <li>• 회계 처리 시 히스토리 추적 용이</li>
+                    <li>• 브랜드 일관성 및 데이터 무결성 보장</li>
+                </ul>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p class="text-xs text-blue-800 mb-2"><strong>📂 표준 폴더 경로:</strong></p>
+                <pre class="text-xs text-blue-900 font-mono bg-white p-2 rounded">
+Windows: C:\Users\사용자명\Documents\HEDGEFREEDOM
+Mac:     ~/Documents/HEDGEFREEDOM
+Linux:   ~/Documents/HEDGEFREEDOM
+                </pre>
+                <p class="text-xs text-blue-800 mt-2">선택한 폴더 안에 자동으로 하위 폴더가 생성됩니다:</p>
+                <pre class="text-xs text-blue-900 font-mono bg-white p-2 rounded mt-1">
+HEDGEFREEDOM/
+├── data/          (설정 및 현재 데이터)
+├── uploads/       (업로드한 Excel 파일)
+├── history/       (일별 히스토리 - 감사용)
+└── cache/         (임시 캐시)
+                </pre>
+            </div>
+            
+            <button 
+                onclick="selectFolder()" 
+                class="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-bold hover:from-green-600 hover:to-green-700 shadow-lg"
+            >
+                📁 HEDGEFREEDOM 폴더 선택하기
+            </button>
+            
+            <p class="text-xs text-gray-500 mt-4 text-center">
+                💡 <strong>필수:</strong> 문서 폴더에 "HEDGEFREEDOM" 폴더를 먼저 만드세요<br>
+                <span class="text-[10px] text-gray-400">powered by hedgeOn Engine | www.hedgefreedom.com</span>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // API 기본 URL
+        const API_BASE = 'http://localhost:9000';
+        
+        // 전역 데이터 저장
+        let currentPositions = [];
+        let currentKPI = null;
+        let currentSuggestions = [];
+        let currentRates = {};
+        let userSettings = null;
+        
+        // 페이지 로드 시 실행
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('📊 헤지매니저 페이지 로드');
+            
+            // 로컬 스토리지 핸들러 초기화
+            await initializeApp();
+        });
+        
+        /**
+         * 앱 초기화
+         */
+        async function initializeApp() {
+            try {
+                // 1. 브라우저 지원 확인
+                if (!localStorageHandler.isSupported()) {
+                    alert('⚠️ 이 브라우저는 로컬 폴더 기능을 지원하지 않습니다.\nChrome 86+ 이상을 사용해주세요.');
+                    return;
+                }
+                
+                // 2. 로컬 폴더 초기화 시도
+                try {
+                    await localStorageHandler.initialize();
+                    console.log('✅ 로컬 폴더 초기화 완료');
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        // 사용자가 폴더 선택 취소 → 모달 표시
+                        showFolderSelectionModal();
+                        return;
+                    }
+                    throw error;
+                }
+                
+                // 3. 로컬에서 데이터 로드
+                const localData = await localStorageHandler.loadAllData();
+                console.log('📂 로컬 데이터 로드:', localData);
+                
+                // 4. 사용자 설정 확인
+                if (!localData.settings || !localData.settings.targetHedgeRatio) {
+                    // 설정 없음 → 초기 설정 모달 표시
+                    showInitialSettingsModal();
+                } else {
+                    // 설정 있음 → 대시보드 로드
+                    userSettings = localData.settings;
+                    await loadDashboard(localData);
+                }
+                
+            } catch (error) {
+                console.error('❌ 앱 초기화 오류:', error);
+                alert(`초기화 오류: ${error.message}`);
+            }
+        }
+        
+        /**
+         * 대시보드 로드
+         */
+        async function loadDashboard(localData) {
+            console.log('📊 대시보드 로드 시작');
+            
+            // 로컬 데이터가 있으면 먼저 표시 (빠른 로딩)
+            if (localData.positions && localData.positions.length > 0) {
+                currentPositions = localData.positions;
+                renderPositions(currentPositions);
+                document.getElementById('tradeCount').textContent = `${currentPositions.length}건`;
+            }
+            
+            if (localData.kpi) {
+                currentKPI = localData.kpi;
+                renderKPI(currentKPI);
+            }
+            
+            if (localData.suggestions && localData.suggestions.length > 0) {
+                currentSuggestions = localData.suggestions;
+                renderSuggestions(currentSuggestions);
+                document.getElementById('suggestionsCount').textContent = `${currentSuggestions.length}건`;
+            }
+            
+            // 서버에서 최신 데이터 가져오기 (백그라운드)
+            await loadAllData();
+            
+            // 자동 새로고침 (1분마다)
+            setInterval(loadAllData, 60000);
+        }
+        
+        /**
+         * 초기 설정 모달 표시
+         */
+        function showInitialSettingsModal() {
+            const modal = document.getElementById('initialSettingsModal');
+            modal.classList.add('active');
+        }
+        
+        /**
+         * 초기 설정 저장
+         */
+        async function saveInitialSettings() {
+            const targetHedgeRatio = parseInt(document.getElementById('targetHedgeRatioInput').value);
+            
+            if (isNaN(targetHedgeRatio) || targetHedgeRatio < 0 || targetHedgeRatio > 100) {
+                alert('⚠️ 목표 헤지 비율은 0~100 사이의 숫자여야 합니다.');
+                return;
+            }
+            
+            try {
+                // 설정 객체 생성
+                const settings = {
+                    targetHedgeRatio: targetHedgeRatio,
+                    companyName: '데모 회사',
+                    industry: '제조업',
+                    riskTolerance: 'moderate',
+                    baseCurrency: 'KRW',
+                    createdAt: new Date().toISOString(),
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                // 로컬에 저장
+                await localStorageHandler.saveSettings(settings);
+                console.log('✅ 설정이 로컬에 저장되었습니다:', settings);
+                
+                // 서버에도 저장 (선택적 - 실패해도 진행)
+                try {
+                    const response = await fetch(`${API_BASE}/api/user/settings`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settings)
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ 설정이 서버에도 저장되었습니다');
+                    } else {
+                        console.warn('⚠️ 서버 저장 실패 (로컬 저장은 완료됨)');
+                    }
+                } catch (serverError) {
+                    console.warn('⚠️ 서버 연결 실패 (로컬 저장은 완료됨):', serverError.message);
+                }
+                
+                // 모달 닫기
+                document.getElementById('initialSettingsModal').classList.remove('active');
+                
+                // 대시보드 로드
+                userSettings = settings;
+                await loadDashboard({ settings });
+                
+            } catch (error) {
+                console.error('❌ 설정 저장 오류:', error);
+                alert(`설정 저장 실패: ${error.message}`);
+            }
+        }
+        
+        /**
+         * 목표 비율 설정 (퀵 버튼)
+         */
+        function setTargetRatio(ratio) {
+            document.getElementById('targetHedgeRatioInput').value = ratio;
+        }
+        
+        /**
+         * 폴더 선택 모달 표시
+         */
+        function showFolderSelectionModal() {
+            const modal = document.getElementById('folderSelectionModal');
+            modal.classList.add('active');
+        }
+        
+        /**
+         * 폴더 선택
+         */
+        async function selectFolder() {
+            try {
+                await localStorageHandler.selectWorkingFolder();
+                document.getElementById('folderSelectionModal').classList.remove('active');
+                
+                // 설정 모달 표시
+                showInitialSettingsModal();
+                
+            } catch (error) {
+                console.error('❌ 폴더 선택 오류:', error);
+            }
+        }
+        
+        // 모든 데이터 로드
+        async function loadAllData() {
+            try {
+                // 병렬로 데이터 로드 시도
+                const results = await Promise.allSettled([
+                    loadPositions(),
+                    loadKPI(),
+                    loadSuggestions()
+                ]);
+                
+                // 각 결과 확인
+                results.forEach((result, index) => {
+                    const names = ['포지션', 'KPI', '제안'];
+                    if (result.status === 'fulfilled') {
+                        console.log(`✅ ${names[index]} 로드 성공`);
+                    } else {
+                        console.warn(`⚠️ ${names[index]} 로드 실패:`, result.reason?.message);
+                    }
+                });
+                
+                updateLastUpdateTime();
+            } catch (error) {
+                console.error('❌ 데이터 로드 오류:', error);
+                // 오류가 있어도 계속 진행 (사용자에게 알리지만 중단하지 않음)
+                console.warn('일부 데이터를 불러올 수 없습니다. 계속 진행합니다.');
+            }
+        }
+        
+        // 거래 포지션 로드
+        async function loadPositions() {
+            try {
+                const response = await fetch(`${API_BASE}/api/hedge/positions`);
+                
+                if (!response.ok) {
+                    throw new Error(`서버 응답 오류: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // API 응답 형식에 맞게 수정
+                    currentPositions = Array.isArray(result.data) ? result.data : (result.data.positions || []);
+                    currentRates = result.data.rates || {};
+                    
+                    renderPositions(currentPositions);
+                    renderExchangeRates(currentRates);
+                    document.getElementById('tradeCount').textContent = `${currentPositions.length}건`;
+                    
+                    // 로컬에 저장
+                    try {
+                        await localStorageHandler.savePositions(currentPositions);
+                    } catch (saveError) {
+                        console.warn('⚠️ 로컬 저장 실패:', saveError);
+                    }
+                } else {
+                    throw new Error(result.error || '데이터 로드 실패');
+                }
+            } catch (error) {
+                console.error('❌ 포지션 로드 오류:', error);
+                // 빈 배열로 설정하여 UI 깨짐 방지
+                if (currentPositions.length === 0) {
+                    currentPositions = [];
+                    renderPositions(currentPositions);
+                    document.getElementById('tradeCount').textContent = '0건';
+                }
+                throw error;
+            }
+        }
+        
+        // KPI 로드
+        async function loadKPI() {
+            try {
+                const response = await fetch(`${API_BASE}/api/hedge/kpi`);
+                
+                if (!response.ok) {
+                    throw new Error(`서버 응답 오류: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentKPI = result.data;
+                    
+                    // 사용자 설정의 목표 비율 반영
+                    if (userSettings && userSettings.targetHedgeRatio) {
+                        currentKPI.targetHedgeRatio = userSettings.targetHedgeRatio;
+                        currentKPI.gap = currentKPI.currentHedgeRatio - userSettings.targetHedgeRatio;
+                    }
+                    
+                    renderKPI(currentKPI);
+                    
+                    // 로컬에 저장
+                    try {
+                        await localStorageHandler.saveKPI(currentKPI);
+                    } catch (saveError) {
+                        console.warn('⚠️ KPI 로컬 저장 실패:', saveError);
+                    }
+                } else {
+                    throw new Error(result.error || 'KPI 로드 실패');
+                }
+            } catch (error) {
+                console.error('❌ KPI 로드 오류:', error);
+                // 기본 KPI 설정
+                if (!currentKPI) {
+                    currentKPI = {
+                        targetHedgeRatio: userSettings?.targetHedgeRatio || 70,
+                        currentHedgeRatio: 0,
+                        gap: -(userSettings?.targetHedgeRatio || 70),
+                        unhedgedAmount: 0
+                    };
+                    renderKPI(currentKPI);
+                }
+                throw error;
+            }
+        }
+        
+        // 헤지 제안 로드
+        async function loadSuggestions() {
+            try {
+                const response = await fetch(`${API_BASE}/api/hedge/suggestions`);
+                
+                if (!response.ok) {
+                    throw new Error(`서버 응답 오류: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // API 응답 형식에 맞게 수정
+                    currentSuggestions = Array.isArray(result.data) ? result.data : (result.data.suggestions || []);
+                    renderSuggestions(currentSuggestions);
+                    document.getElementById('suggestionsCount').textContent = `${currentSuggestions.length}건`;
+                    
+                    // 로컬에 저장
+                    try {
+                        await localStorageHandler.saveSuggestions(currentSuggestions);
+                    } catch (saveError) {
+                        console.warn('⚠️ 제안 로컬 저장 실패:', saveError);
+                    }
+                } else {
+                    throw new Error(result.error || '제안 로드 실패');
+                }
+            } catch (error) {
+                console.error('❌ 제안 로드 오류:', error);
+                // 빈 배열로 설정
+                if (currentSuggestions.length === 0) {
+                    currentSuggestions = [];
+                    renderSuggestions(currentSuggestions);
+                    document.getElementById('suggestionsCount').textContent = '0건';
+                }
+                throw error;
+            }
+        }
+        
+        // 포지션 테이블 렌더링
+        function renderPositions(positions) {
+            const tbody = document.getElementById('positionsTableBody');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const tableContainer = document.getElementById('positionsTableContainer');
+            
+            if (!positions || positions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-400">데이터가 없습니다.</td></tr>';
+                return;
+            }
+            
+            // 로딩 숨기고 테이블 표시
+            loadingIndicator.style.display = 'none';
+            tableContainer.style.display = 'block';
+            
+            tbody.innerHTML = positions.map(pos => {
+                const hedgeStatus = getHedgeStatus(pos);
+                const hedgeClass = getHedgeStatusClass(pos.hedgeStatus);
+                
+                return `
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="selectPosition('${pos.id}')">
+                        <td class="p-3 font-medium text-gray-900">${pos.id}</td>
+                        <td class="p-3">${pos.counterparty}</td>
+                        <td class="p-3 font-bold">${pos.currency}</td>
+                        <td class="p-3 text-right">${formatNumber(pos.amount)}</td>
+                        <td class="p-3">${pos.paymentDate}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-1 rounded text-xs ${pos.type === '채무' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
+                                ${pos.type}
+                            </span>
+                        </td>
+                        <td class="p-3 text-right font-medium">${formatKRW(pos.krwAmount)}</td>
+                        <td class="p-3 text-center">
+                            <span class="px-2 py-1 rounded text-xs ${pos.dday <= 30 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">
+                                D-${pos.dday}
+                            </span>
+                        </td>
+                        <td class="p-3 ${hedgeClass}">${hedgeStatus}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // 환율 렌더링
+        function renderExchangeRates(rates) {
+            const container = document.getElementById('exchangeRates');
+            
+            // 기본 환율 설정
+            const defaultRates = {
+                USD: 1350.0,
+                EUR: 1450.0,
+                JPY: 9.5,
+                CNY: 185.0
+            };
+            
+            const actualRates = rates && Object.keys(rates).length > 0 ? rates : defaultRates;
+            
+            const rateItems = [
+                { label: 'USD/KRW', value: actualRates.USD || 1350, change: 0.45 },
+                { label: 'EUR/KRW', value: actualRates.EUR || 1450, change: -0.12 },
+                { label: 'JPY/KRW', value: actualRates.JPY || 9.5, change: 0.28 },
+                { label: 'CNY/KRW', value: actualRates.CNY || 185, change: -0.08 }
+            ];
+            
+            container.innerHTML = rateItems.map(item => {
+                const isPositive = item.change >= 0;
+                return `
+                    <div class="flex items-center space-x-2 px-3 py-1 ${isPositive ? 'bg-green-50' : 'bg-red-50'} rounded">
+                        <span class="text-xs font-bold text-gray-600">${item.label}</span>
+                        <span class="text-sm font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}">
+                            ${item.value.toFixed(2)}
+                        </span>
+                        <span class="text-[10px] ${isPositive ? 'text-green-600' : 'text-red-600'}">
+                            ${isPositive ? '▲' : '▼'}${Math.abs(item.change)}%
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // KPI 렌더링
+        function renderKPI(kpi) {
+            if (!kpi) {
+                console.warn('KPI 데이터가 없습니다');
+                return;
+            }
+            
+            document.getElementById('targetHedgeRatio').textContent = `${kpi.targetHedgeRatio || 70}%`;
+            document.getElementById('currentHedgeRatio').textContent = `${kpi.currentHedgeRatio || 0}%`;
+            
+            const unhedgedAmount = kpi.unhedgedAmount || kpi.unhedgedExposure || 0;
+            document.getElementById('unhedgedExposure').textContent = `${Math.round(unhedgedAmount / 100000000)}억원`;
+            
+            const gap = kpi.gap || 0;
+            const gapElement = document.getElementById('hedgeGap');
+            gapElement.textContent = `목표 대비 ${gap > 0 ? '+' : ''}${gap}%p`;
+            gapElement.className = gap < -10 ? 'indicator-red text-[10px] px-2 py-1 rounded font-bold mb-1' : 'indicator-green text-[10px] px-2 py-1 rounded font-bold mb-1';
+        }
+        
+        // 목표 헤지 비율 편집 모드 토글
+        function toggleEditTargetRatio() {
+            const displayDiv = document.getElementById('targetRatioDisplay');
+            const editDiv = document.getElementById('targetRatioEdit');
+            const currentValue = parseInt(document.getElementById('targetHedgeRatio').textContent);
+            
+            displayDiv.classList.add('hidden');
+            editDiv.classList.remove('hidden');
+            
+            document.getElementById('targetRatioInput').value = currentValue;
+            document.getElementById('targetRatioInput').focus();
+        }
+        
+        // 목표 헤지 비율 편집 취소
+        function cancelEditTargetRatio() {
+            const displayDiv = document.getElementById('targetRatioDisplay');
+            const editDiv = document.getElementById('targetRatioEdit');
+            
+            displayDiv.classList.remove('hidden');
+            editDiv.classList.add('hidden');
+        }
+        
+        // 목표 헤지 비율 저장
+        async function saveTargetRatio() {
+            const newRatio = parseInt(document.getElementById('targetRatioInput').value);
+            
+            if (isNaN(newRatio) || newRatio < 0 || newRatio > 100) {
+                alert('⚠️ 목표 헤지 비율은 0~100 사이의 숫자여야 합니다.');
+                return;
+            }
+            
+            try {
+                // 로컬 설정 업데이트
+                const currentSettings = await localStorageHandler.loadSettings() || {};
+                currentSettings.targetHedgeRatio = newRatio;
+                currentSettings.lastUpdated = new Date().toISOString();
+                await localStorageHandler.saveSettings(currentSettings);
+                
+                // 서버로 목표 헤지 비율 전송
+                try {
+                    await fetch(`${API_BASE}/api/user/settings`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(currentSettings)
+                    });
+                    console.log('✅ 목표 헤지 비율이 서버로 전송되었습니다:', newRatio);
+                } catch (serverError) {
+                    console.warn('⚠️ 서버 전송 실패 (로컬 저장은 완료):', serverError);
+                }
+                
+                // 전역 변수 업데이트
+                if (userSettings) {
+                    userSettings.targetHedgeRatio = newRatio;
+                }
+                
+                // UI 업데이트
+                document.getElementById('targetHedgeRatio').textContent = `${newRatio}%`;
+                cancelEditTargetRatio();
+                
+                // KPI 다시 로드하여 갭 재계산
+                await loadDashboard({
+                    settings: currentSettings,
+                    positions: await localStorageHandler.loadPositions(),
+                    kpi: await localStorageHandler.loadKPI()
+                });
+                
+                // 성공 메시지
+                const successMsg = document.createElement('div');
+                successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+                successMsg.textContent = '✓ 목표 헤지 비율이 업데이트되었습니다.';
+                document.body.appendChild(successMsg);
+                
+                setTimeout(() => {
+                    successMsg.remove();
+                }, 2000);
+                
+            } catch (error) {
+                console.error('목표 비율 저장 실패:', error);
+                alert('⚠️ 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+            }
+        }
+        
+        // 제안 테이블 렌더링
+        function renderSuggestions(suggestions) {
+            const tbody = document.getElementById('suggestionsTableBody');
+            
+            if (!suggestions || suggestions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-gray-400">제안이 없습니다.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = suggestions.map((sug, index) => `
+                <tr class="hover:bg-blue-50">
+                    <td class="px-3 py-2 text-center">${index + 1}</td>
+                    <td class="px-3 py-2">${sug.counterparty}</td>
+                    <td class="px-3 py-2">
+                        <span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700 font-medium">
+                            ${sug.product}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2 font-bold">${sug.currency}</td>
+                    <td class="px-3 py-2 text-right font-medium">${formatNumber(sug.recommendedAmount)}</td>
+                    <td class="px-3 py-2">${sug.paymentDate}</td>
+                    <td class="px-3 py-2 text-blue-600 font-bold">${sug.bank}</td>
+                    <td class="px-3 py-2 font-medium">${sug.rate.toFixed(2)}</td>
+                    <td class="px-3 py-2 text-center">
+                        <button onclick="executeSuggestion('${sug.id}')" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                            실행
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // 헤지 상태 텍스트
+        function getHedgeStatus(position) {
+            if (position.hedgeStatus === '완전헤지') return '완전헤지';
+            if (position.hedgeStatus === '부분헤지') {
+                const percent = Math.round((position.hedgedAmount / position.amount) * 100);
+                return `부분헤지 (${percent}%)`;
+            }
+            return '미헤지';
+        }
+        
+        // 헤지 상태 CSS 클래스
+        function getHedgeStatusClass(status) {
+            if (status === '완전헤지') return 'status-full';
+            if (status === '부분헤지') return 'status-partial';
+            return 'status-unhedged';
+        }
+        
+        // 숫자 포맷
+        function formatNumber(num) {
+            return new Intl.NumberFormat('ko-KR').format(num);
+        }
+        
+        // 원화 포맷
+        function formatKRW(num) {
+            const billion = Math.floor(num / 100000000);
+            const million = Math.floor((num % 100000000) / 10000);
+            
+            if (billion > 0) {
+                return million > 0 ? `${billion}억 ${million}만원` : `${billion}억원`;
+            }
+            return `${million}만원`;
+        }
+        
+        // 마지막 업데이트 시간
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = `갱신: ${now.toLocaleTimeString('ko-KR')}`;
+        }
+        
+        // 포지션 선택
+        function selectPosition(id) {
+            console.log('포지션 선택:', id);
+            // 향후 상세 정보 모달 표시
+        }
+        
+        // 제안 실행
+        function executeSuggestion(id) {
+            if (confirm('이 헤지 제안을 실행하시겠습니까?')) {
+                console.log('제안 실행:', id);
+                alert('헤지 거래가 실행되었습니다.\n(실제 시스템 연동 필요)');
+            }
+        }
+        
+        // 모든 제안 실행
+        function executeAllSuggestions() {
+            if (confirm(`총 ${currentSuggestions.length}건의 헤지 제안을 모두 실행하시겠습니까?`)) {
+                console.log('모든 제안 실행');
+                alert('모든 헤지 거래가 실행되었습니다.\n(실제 시스템 연동 필요)');
+            }
+        }
+        
+        // 헤지 전략 계산
+        async function calculateHedgeStrategy() {
+            const btn = document.getElementById('calculateHedgeBtn');
+            btn.disabled = true;
+            btn.textContent = '계산 중...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/hedge/calculate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        positions: currentPositions,
+                        targetRatio: currentKPI.targetHedgeRatio
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`헤지 전략 계산 완료!\n\n계산 ID: ${result.data.calculationId}\n추천 액션: ${result.data.recommendedActions.length}건\n예상 비용: ${formatKRW(result.data.estimatedCost)}\n리스크 감소: ${result.data.riskReduction}%`);
+                    
+                    // 제안 새로고침
+                    await loadSuggestions();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('❌ 계산 오류:', error);
+                alert('헤지 전략 계산 중 오류가 발생했습니다.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '⚡ 헤지 전략 계산';
+            }
+        }
+        
+        // 데이터 새로고침
+        function refreshData() {
+            console.log('🔄 데이터 새로고침');
+            loadAllData();
+        }
+        
+        // ========================================
+        // 엑셀 파일 업로드 기능
+        // ========================================
+        
+        let selectedFile = null;
+        
+        /**
+         * 파일 선택 핸들러
+         */
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            
+            if (!file) {
+                selectedFile = null;
+                document.getElementById('selectedFileName').textContent = '선택된 파일 없음';
+                document.getElementById('uploadBtn').disabled = true;
+                return;
+            }
+            
+            // 파일 확장자 체크
+            const validExtensions = ['.xlsx', '.xls'];
+            const fileName = file.name.toLowerCase();
+            const isValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+            
+            if (!isValidExtension) {
+                alert('⚠️ 엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+                event.target.value = '';
+                selectedFile = null;
+                document.getElementById('selectedFileName').textContent = '선택된 파일 없음';
+                document.getElementById('uploadBtn').disabled = true;
+                return;
+            }
+            
+            // 파일 크기 체크 (10MB)
+            const maxSize = 10 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert('⚠️ 파일 크기는 10MB 이하여야 합니다.');
+                event.target.value = '';
+                selectedFile = null;
+                document.getElementById('selectedFileName').textContent = '선택된 파일 없음';
+                document.getElementById('uploadBtn').disabled = true;
+                return;
+            }
+            
+            selectedFile = file;
+            document.getElementById('selectedFileName').textContent = file.name;
+            document.getElementById('uploadBtn').disabled = false;
+            
+            console.log('✅ 파일 선택됨:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
+        }
+        
+        /**
+         * 엑셀 파일 업로드 및 처리
+         */
+        async function uploadExcelFile() {
+            if (!selectedFile) {
+                alert('⚠️ 파일을 먼저 선택해주세요.');
+                return;
+            }
+            
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressPercentage = document.getElementById('uploadPercentage');
+            const uploadStatus = document.getElementById('uploadStatus');
+            
+            try {
+                // UI 업데이트
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = '업로드 중...';
+                progressDiv.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                progressPercentage.textContent = '0%';
+                uploadStatus.textContent = '파일 읽는 중...';
+                
+                // 1단계: 파일을 Base64로 인코딩 (30%)
+                const fileData = await readFileAsBase64(selectedFile);
+                updateProgress(30, '데이터 익명화 중...');
+                
+                // 2단계: 익명화된 데이터 준비 (50%)
+                const anonymizedData = anonymizeFileData(selectedFile.name);
+                updateProgress(50, '서버로 전송 중...');
+                
+                // 3단계: 서버로 전송 (70%)
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('customerId', getCurrentCustomerId());
+                formData.append('uploadDate', new Date().toISOString());
+                
+                const response = await fetch(`${API_BASE}/api/upload/excel`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                updateProgress(80, '서버 처리 중...');
+                
+                if (!response.ok) {
+                    throw new Error(`서버 오류: ${response.status} ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                updateProgress(90, '결과 처리 중...');
+                
+                if (result.success) {
+                    updateProgress(100, '업로드 완료!');
+                    
+                    // 로컬에도 저장
+                    if (result.data.positions) {
+                        await localStorageHandler.savePositions(result.data.positions);
+                    }
+                    if (result.data.kpi) {
+                        await localStorageHandler.saveKPI(result.data.kpi);
+                    }
+                    
+                    // 성공 메시지
+                    setTimeout(() => {
+                        alert(`✅ 업로드 성공!\n\n처리된 거래: ${result.data.positions?.length || 0}건\n총 노출액: ${formatKRW(result.data.kpi?.totalExposure || 0)}\n헤지 비율: ${result.data.kpi?.currentHedgeRatio || 0}%`);
+                        
+                        // UI 초기화
+                        resetUploadUI();
+                        
+                        // 데이터 새로고침
+                        loadAllData();
+                    }, 500);
+                    
+                } else {
+                    throw new Error(result.error || '알 수 없는 오류');
+                }
+                
+            } catch (error) {
+                console.error('❌ 업로드 오류:', error);
+                updateProgress(0, '오류 발생');
+                setTimeout(() => {
+                    alert(`⚠️ 업로드 실패\n\n${error.message}\n\n다시 시도해주세요.`);
+                    resetUploadUI();
+                }, 500);
+            }
+        }
+        
+        /**
+         * 파일을 Base64로 읽기
+         */
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('파일 읽기 실패'));
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        /**
+         * 데이터 익명화 (클라이언트 측)
+         * 실제로는 서버에서도 처리하지만, 클라이언트에서 사전 처리
+         */
+        function anonymizeFileData(fileName) {
+            const timestamp = new Date().toISOString();
+            const customerId = getCurrentCustomerId();
+            
+            return {
+                originalFileName: fileName,
+                uploadTimestamp: timestamp,
+                customerId: customerId,
+                // 실제 파일 내용은 서버에서 익명화
+                anonymized: true
+            };
+        }
+        
+        /**
+         * 현재 고객 ID 가져오기
+         */
+        function getCurrentCustomerId() {
+            // 로컬 스토리지에서 고객 ID 가져오기
+            // 없으면 임시 ID 생성
+            let customerId = localStorage.getItem('customerId');
+            
+            if (!customerId) {
+                // UUID 형식의 고유 ID 생성
+                customerId = 'customer_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+                localStorage.setItem('customerId', customerId);
+                console.log('🆔 새 고객 ID 생성:', customerId);
+            }
+            
+            return customerId;
+        }
+        
+        /**
+         * 업로드 진행률 업데이트
+         */
+        function updateProgress(percentage, statusText) {
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressPercentage = document.getElementById('uploadPercentage');
+            const uploadStatus = document.getElementById('uploadStatus');
+            
+            progressBar.style.width = `${percentage}%`;
+            progressPercentage.textContent = `${percentage}%`;
+            uploadStatus.textContent = statusText;
+        }
+        
+        /**
+         * 업로드 UI 초기화
+         */
+        function resetUploadUI() {
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressDiv = document.getElementById('uploadProgress');
+            const fileInput = document.getElementById('excelFileInput');
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⬆️ 업로드 및 계산';
+            progressDiv.classList.add('hidden');
+            fileInput.value = '';
+            selectedFile = null;
+            document.getElementById('selectedFileName').textContent = '선택된 파일 없음';
+        }
+        
+        // ========================================
+        // 엑셀 업로드 기능 끝
+        // ========================================
+        
+        // 에러 표시
+        function showError(message) {
+            alert(`오류: ${message}`);
+        }
+    </script>
+
+</body>
+</html>
